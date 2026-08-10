@@ -357,11 +357,11 @@ function Login({ onLogin }) {
 // ─────────────────────────────────────────────────────────────
 function Gestao({ authed, onLogin, onLogout }) {
   const [agenda, setAgenda] = useState([
-    { time: "09:00", cliente: "Ana Beatriz", serv: "Massagem Relaxante", pro: "Marina", status: "confirmado" },
-    { time: "10:30", cliente: "Júlia Menezes", serv: "Volume Russo", pro: "Rafael", status: "confirmado" },
-    { time: "13:00", cliente: "Carla Dias", serv: "Lash Lifting", pro: "Rafael", status: "pendente" },
-    { time: "14:30", cliente: "—", serv: "Livre", pro: "—", status: "livre" },
-    { time: "16:00", cliente: "Paula Reis", serv: "Modeladora", pro: "Marina", status: "confirmado" },
+    { date: DATES[0].key, time: "09:00", cliente: "Ana Beatriz", serv: "Massagem Relaxante", pro: "Marina", status: "confirmado" },
+    { date: DATES[0].key, time: "10:30", cliente: "Júlia Menezes", serv: "Volume Russo", pro: "Rafael", status: "confirmado" },
+    { date: DATES[0].key, time: "13:00", cliente: "Carla Dias", serv: "Lash Lifting", pro: "Rafael", status: "pendente" },
+    { date: DATES[0].key, time: "14:30", cliente: "—", serv: "Livre", pro: "—", status: "livre" },
+    { date: DATES[0].key, time: "16:00", cliente: "Paula Reis", serv: "Modeladora", pro: "Marina", status: "confirmado" },
   ]);
   const [transactions, setTransactions] = useState([
     { id: 1, desc: "Serviços do dia", value: 1240, type: "servico" },
@@ -376,13 +376,13 @@ function Gestao({ authed, onLogin, onLogout }) {
   const receita = transactions.filter((t) => t.type === "servico").reduce((s, t) => s + t.value, 0);
   const produtos = transactions.filter((t) => t.type === "produto").reduce((s, t) => s + t.value, 0);
   const despesa = transactions.filter((t) => t.type === "despesa").reduce((s, t) => s + t.value, 0);
-  const atendimentos = agenda.filter((a) => a.status !== "livre").length;
+  const atendimentos = agenda.filter((a) => a.status !== "livre" && a.date === DATES[0].key).length;
 
   const addAgendamento = (novo) => {
     setAgenda((prev) => {
-      const idx = prev.findIndex((a) => a.time === novo.time);
+      const idx = prev.findIndex((a) => a.date === novo.date && a.time === novo.time);
       const next = idx >= 0 ? prev.map((a, i) => (i === idx ? novo : a)) : [...prev, novo];
-      return [...next].sort((a, b) => a.time.localeCompare(b.time));
+      return [...next].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     });
     setShowNovoAgendamento(false);
   };
@@ -429,8 +429,11 @@ function Gestao({ authed, onLogin, onLogout }) {
                 border: `1px solid ${C.line}`,
                 opacity: a.status === "livre" ? 0.6 : 1,
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 62, color: C.muted, fontSize: 13, fontWeight: 500 }}>
-                  <Clock size={13} /> {a.time}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, minWidth: 62, color: C.muted, fontSize: 13, fontWeight: 500 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Clock size={13} /> {a.time}</span>
+                  {a.date !== DATES[0].key && (
+                    <span style={{ fontSize: 11, color: C.gold, fontWeight: 600 }}>{DATES.find((d) => d.key === a.date)?.display ?? a.date}</span>
+                  )}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{a.cliente}</div>
@@ -479,6 +482,7 @@ function Gestao({ authed, onLogin, onLogout }) {
 function NovoAgendamentoModal({ onClose, onSave }) {
   const [cliente, setCliente] = useState("");
   const [servicoId, setServicoId] = useState(SERVICES[0].id);
+  const [date, setDate] = useState(DATES[0].key);
   const [time, setTime] = useState(SLOTS[0]);
 
   const inputStyle = { width: "100%", padding: "11px 13px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, outline: "none", background: "#fff", color: C.ink };
@@ -487,7 +491,7 @@ function NovoAgendamentoModal({ onClose, onSave }) {
     e.preventDefault();
     if (!cliente.trim()) return;
     const s = SERVICES.find((x) => x.id === Number(servicoId));
-    onSave({ time, cliente: cliente.trim(), serv: s.name, pro: s.pro, status: "confirmado" });
+    onSave({ date, time, cliente: cliente.trim(), serv: s.name, pro: s.pro, status: "confirmado" });
   };
 
   return (
@@ -500,9 +504,14 @@ function NovoAgendamentoModal({ onClose, onSave }) {
           <select value={servicoId} onChange={(e) => setServicoId(e.target.value)} style={{ ...inputStyle, marginTop: 10 }}>
             {SERVICES.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.pro}</option>)}
           </select>
-          <select value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, marginTop: 10 }}>
-            {SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <select value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle}>
+              {DATES.map((d) => <option key={d.key} value={d.key}>{d.display}</option>)}
+            </select>
+            <select value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle}>
+              {SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
           <button type="submit" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, background: C.gold, color: "#fff", marginTop: 16 }}>Adicionar à agenda</button>
         </form>
       </div>
