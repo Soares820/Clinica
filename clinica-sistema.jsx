@@ -61,13 +61,48 @@ export default function App() {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.ink, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=DM+Sans:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
         html, body { max-width: 100%; overflow-x: hidden; }
         .display { font-family: 'Fraunces', serif; }
-        button { font-family: inherit; cursor: pointer; border: none; }
-        .lift { transition: transform .18s ease, box-shadow .18s ease; }
-        .lift:hover { transform: translateY(-2px); }
+        button { font-family: inherit; cursor: pointer; border: none; -webkit-tap-highlight-color: transparent; }
+        button, .lift, input, select {
+          transition: transform .16s cubic-bezier(.22,1,.36,1), box-shadow .18s ease, filter .16s ease,
+            background .18s ease, background-color .18s ease, border-color .16s ease, color .16s ease;
+        }
+        button:disabled { cursor: not-allowed; }
+        button:focus-visible, input:focus-visible, select:focus-visible {
+          outline: 2px solid ${C.gold}; outline-offset: 2px;
+        }
+        input:focus, select:focus { border-color: ${C.gold} !important; box-shadow: 0 0 0 4px rgba(192,138,78,.14); }
+
+        .card { box-shadow: 0 1px 2px rgba(42,35,32,.05), 0 12px 28px -14px rgba(42,35,32,.16); }
+
+        .lift:hover { transform: translateY(-3px); box-shadow: 0 18px 34px -16px rgba(42,35,32,.22); }
+        .lift:active { transform: translateY(-1px); }
+
+        .chip:hover:not(:disabled) { border-color: ${C.aubergine}; }
+        .chip:active:not(:disabled) { transform: scale(0.96); }
+
+        .icon-btn:hover:not(:disabled) { background: #EFE4D6 !important; }
+        .icon-btn:active:not(:disabled) { transform: scale(0.90); }
+
+        .icon-btn-dark:hover:not(:disabled) { filter: brightness(1.18); transform: translateY(-1px); }
+        .icon-btn-dark:active:not(:disabled) { transform: translateY(0) scale(0.90); }
+
+        .btn-primary {
+          background: linear-gradient(135deg, #D6A874 0%, ${C.gold} 55%, #A97840 100%) !important;
+          color: #fff !important;
+          box-shadow: 0 3px 10px rgba(176,122,58,.32), inset 0 1px 0 rgba(255,255,255,.25);
+        }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 28px -6px rgba(176,122,58,.45), inset 0 1px 0 rgba(255,255,255,.3); filter: brightness(1.04); }
+        .btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 3px 10px rgba(176,122,58,.32); }
+        .btn-primary:disabled { background: ${C.line} !important; color: ${C.muted} !important; box-shadow: none; }
+
+        .btn-ghost { background: ${C.card}; border: 1px solid ${C.line}; color: ${C.muted}; }
+        .btn-ghost:hover:not(:disabled) { border-color: ${C.aubergine}; color: ${C.aubergine}; background: #FBF8F3; }
+        .btn-ghost:active:not(:disabled) { transform: scale(0.97); }
+
         .two-col { grid-template-columns: 1fr; }
         .produtos-grid { grid-template-columns: 1fr; }
         .kpi-grid { grid-template-columns: repeat(2,1fr); }
@@ -96,10 +131,12 @@ export default function App() {
         </div>
         <div style={{ display: "flex", gap: 4, background: C.card, padding: 4, borderRadius: 12, border: `1px solid ${C.line}` }}>
           {["cliente", "gestao"].map((m) => (
-            <button key={m} onClick={() => setMode(m)} style={{
+            <button key={m} className="chip" onClick={() => setMode(m)} style={{
               padding: "8px 16px", borderRadius: 9, fontSize: 14, fontWeight: 500,
               background: mode === m ? C.aubergine : "transparent",
               color: mode === m ? "#fff" : C.muted,
+              boxShadow: mode === m ? "0 3px 10px rgba(61,43,59,.28)" : "none",
+              border: "1px solid transparent",
             }}>{m === "cliente" ? "Área da Cliente" : "Gestão"}</button>
           ))}
         </div>
@@ -156,11 +193,11 @@ function Cliente() {
         <div className="two-col" style={{ display: "grid", gap: 24, alignItems: "start" }}>
           <div style={{ display: "grid", gap: 14 }}>
             {SERVICES.map((s) => (
-              <button key={s.id} className="lift" onClick={() => { setSelService(s); setPaid(false); setSelDate(null); setSelSlot(null); }} style={{
+              <button key={s.id} className="lift card" onClick={() => { setSelService(s); setPaid(false); setSelDate(null); setSelSlot(null); }} style={{
                 textAlign: "left", background: C.card, borderRadius: 16, padding: 20,
                 border: `1.5px solid ${selService?.id === s.id ? C.aubergine : C.line}`,
                 display: "flex", justifyContent: "space-between", alignItems: "center",
-                boxShadow: selService?.id === s.id ? "0 8px 24px rgba(61,43,59,.12)" : "none",
+                boxShadow: selService?.id === s.id ? "0 10px 26px -8px rgba(61,43,59,.35)" : undefined,
               }}>
                 <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
                   <div style={{ width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center", background: s.tag === "sage" ? "#EEF1E9" : "#FBEEEC" }}>
@@ -177,7 +214,7 @@ function Cliente() {
           </div>
 
           {/* Sidebar agendamento */}
-          <div className="sidebar-card" style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
+          <div className="sidebar-card card" style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
             {!selService && (
               <div style={{ fontWeight: 600, fontSize: 15 }}>Selecione um serviço</div>
             )}
@@ -188,16 +225,17 @@ function Cliente() {
                 <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px" }}>{selService.name} · {brl(selService.price)}</p>
                 <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
                   {["pix", "cartao"].map((m) => (
-                    <button key={m} onClick={() => setPayMethod(m)} style={{
+                    <button key={m} className="chip" onClick={() => setPayMethod(m)} style={{
                       flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                       padding: "10px 0", borderRadius: 10, fontSize: 14, fontWeight: 500,
                       background: payMethod === m ? C.aubergine : "#F7F3EE",
                       color: payMethod === m ? "#fff" : C.ink,
                       border: `1px solid ${payMethod === m ? C.aubergine : C.line}`,
+                      boxShadow: payMethod === m ? "0 4px 12px rgba(61,43,59,.25)" : undefined,
                     }}>{m === "pix" ? <QrCode size={15} /> : <CreditCard size={15} />}{m === "pix" ? "Pix" : "Cartão"}</button>
                   ))}
                 </div>
-                <button onClick={() => setPaid(true)} style={{ width: "100%", padding: 14, borderRadius: 12, fontWeight: 600, fontSize: 15, background: C.gold, color: "#fff" }}>
+                <button className="btn-primary" onClick={() => setPaid(true)} style={{ width: "100%", padding: 14, borderRadius: 12, fontWeight: 600, fontSize: 15 }}>
                   Confirmar pagamento
                 </button>
               </>
@@ -208,11 +246,12 @@ function Cliente() {
                 <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Escolha o dia e horário</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
                   {DATES.map((d) => (
-                    <button key={d.key} onClick={() => setSelDate(d.key)} style={{
+                    <button key={d.key} className="chip" onClick={() => setSelDate(d.key)} style={{
                       flex: "0 0 auto", minWidth: 52, padding: "8px 4px", borderRadius: 10, textAlign: "center",
                       background: selDate === d.key ? C.aubergine : "#F7F3EE",
                       color: selDate === d.key ? "#fff" : C.ink,
                       border: `1px solid ${selDate === d.key ? C.aubergine : C.line}`,
+                      boxShadow: selDate === d.key ? "0 4px 12px rgba(61,43,59,.25)" : undefined,
                     }}>
                       <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>{d.top}</div>
                       <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2 }}>{d.num}</div>
@@ -221,17 +260,17 @@ function Cliente() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
                   {SLOTS.map((t) => (
-                    <button key={t} onClick={() => setSelSlot(t)} style={{
+                    <button key={t} className="chip" onClick={() => setSelSlot(t)} style={{
                       padding: "10px 0", borderRadius: 10, fontSize: 14, fontWeight: 500,
                       background: selSlot === t ? C.aubergine : "#F7F3EE",
                       color: selSlot === t ? "#fff" : C.ink,
                       border: `1px solid ${selSlot === t ? C.aubergine : C.line}`,
+                      boxShadow: selSlot === t ? "0 4px 12px rgba(61,43,59,.25)" : undefined,
                     }}>{t}</button>
                   ))}
                 </div>
-                <button disabled={!selDate || !selSlot} onClick={() => setConfirmed({ type: "agenda", service: selService, date: selDate, slot: selSlot, method: payMethod })} style={{
+                <button className="btn-primary" disabled={!selDate || !selSlot} onClick={() => setConfirmed({ type: "agenda", service: selService, date: selDate, slot: selSlot, method: payMethod })} style={{
                   width: "100%", padding: 14, borderRadius: 12, fontWeight: 600, fontSize: 15,
-                  background: (selDate && selSlot) ? C.gold : C.line, color: (selDate && selSlot) ? "#fff" : C.muted,
                 }}>Confirmar agendamento</button>
               </>
             )}
@@ -243,7 +282,7 @@ function Cliente() {
         <div className="two-col" style={{ display: "grid", gap: 24, alignItems: "start" }}>
           <div className="produtos-grid" style={{ display: "grid", gap: 14 }}>
             {PRODUCTS.map((p) => (
-              <div key={p.id} className="lift" style={{ background: C.card, borderRadius: 16, padding: 18, border: `1px solid ${C.line}` }}>
+              <div key={p.id} className="lift card" style={{ background: C.card, borderRadius: 16, padding: 18, border: `1px solid ${C.line}` }}>
                 <div style={{ height: 90, borderRadius: 12, background: "linear-gradient(135deg,#F0E6DA,#E8D9CC)", marginBottom: 14, display: "grid", placeItems: "center" }}>
                   <ShoppingBag size={26} color={C.gold} />
                 </div>
@@ -251,7 +290,7 @@ function Cliente() {
                 <div style={{ color: C.muted, fontSize: 12, margin: "4px 0 12px" }}>{p.stock} em estoque</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span className="display" style={{ fontSize: 18, fontWeight: 600 }}>{brl(p.price)}</span>
-                  <button onClick={() => addCart(p)} style={{ width: 34, height: 34, borderRadius: 10, background: C.aubergine, color: "#fff", display: "grid", placeItems: "center" }}>
+                  <button className="icon-btn" onClick={() => addCart(p)} style={{ width: 34, height: 34, borderRadius: 10, background: C.aubergine, color: "#fff", display: "grid", placeItems: "center", boxShadow: "0 3px 8px rgba(61,43,59,.28)" }}>
                     <Plus size={18} />
                   </button>
                 </div>
@@ -260,7 +299,7 @@ function Cliente() {
           </div>
 
           {/* Carrinho */}
-          <div className="sidebar-card" style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
+          <div className="sidebar-card card" style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
             <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Seu carrinho</div>
             {cart.length === 0 ? (
               <p style={{ color: C.muted, fontSize: 14 }}>Adicione produtos pra continuar.</p>
@@ -270,16 +309,16 @@ function Cliente() {
                   <div key={x.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <div style={{ fontSize: 13, maxWidth: 150 }}>{x.name}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={() => decCart(x.id)} style={{ width: 24, height: 24, borderRadius: 7, background: "#F7F3EE", display: "grid", placeItems: "center" }}><Minus size={13} /></button>
+                      <button className="icon-btn" onClick={() => decCart(x.id)} style={{ width: 24, height: 24, borderRadius: 7, background: "#F7F3EE", display: "grid", placeItems: "center" }}><Minus size={13} /></button>
                       <span style={{ fontSize: 14, fontWeight: 600, minWidth: 16, textAlign: "center" }}>{x.q}</span>
-                      <button onClick={() => addCart(x)} style={{ width: 24, height: 24, borderRadius: 7, background: "#F7F3EE", display: "grid", placeItems: "center" }}><Plus size={13} /></button>
+                      <button className="icon-btn" onClick={() => addCart(x)} style={{ width: 24, height: 24, borderRadius: 7, background: "#F7F3EE", display: "grid", placeItems: "center" }}><Plus size={13} /></button>
                     </div>
                   </div>
                 ))}
                 <div style={{ borderTop: `1px solid ${C.line}`, margin: "14px 0", paddingTop: 14, display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
                   <span>Total</span><span className="display" style={{ fontSize: 18 }}>{brl(cartTotal)}</span>
                 </div>
-                <button onClick={() => setConfirmed({ type: "compra", total: cartTotal })} style={{ width: "100%", padding: 14, borderRadius: 12, fontWeight: 600, background: C.gold, color: "#fff" }}>
+                <button className="btn-primary" onClick={() => setConfirmed({ type: "compra", total: cartTotal })} style={{ width: "100%", padding: 14, borderRadius: 12, fontWeight: 600 }}>
                   Pagar com Pix / Cartão
                 </button>
               </>
@@ -296,8 +335,8 @@ function Cliente() {
 function Confirm({ data, onClose }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(42,35,32,.5)", display: "grid", placeItems: "center", zIndex: 50, padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 22, padding: 32, maxWidth: 380, textAlign: "center", position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", color: C.muted }}><X size={20} /></button>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ background: "#fff", borderRadius: 22, padding: 32, maxWidth: 380, textAlign: "center", position: "relative" }}>
+        <button className="icon-btn" onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", color: C.muted, width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center" }}><X size={20} /></button>
         <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#EEF1E9", display: "grid", placeItems: "center", margin: "0 auto 18px" }}>
           <Check size={30} color={C.sage} />
         </div>
@@ -335,8 +374,8 @@ function Login({ onLogin }) {
 
   return (
     <div style={{ maxWidth: 380, margin: "10vh auto 0", padding: "0 clamp(16px,4vw,24px) 60px" }}>
-      <div style={{ background: C.card, borderRadius: 18, padding: 28, border: `1px solid ${C.line}` }}>
-        <div style={{ width: 46, height: 46, borderRadius: 12, background: C.aubergine, display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+      <div className="card" style={{ background: C.card, borderRadius: 18, padding: 28, border: `1px solid ${C.line}` }}>
+        <div style={{ width: 46, height: 46, borderRadius: 12, background: C.aubergine, display: "grid", placeItems: "center", margin: "0 auto 16px", boxShadow: "0 4px 12px rgba(61,43,59,.3)" }}>
           <Lock size={20} color={C.gold} />
         </div>
         <h2 className="display" style={{ fontSize: 22, fontWeight: 600, textAlign: "center", margin: "0 0 4px" }}>Acesso restrito</h2>
@@ -345,7 +384,7 @@ function Login({ onLogin }) {
           <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="Usuário" style={inputStyle} />
           <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" placeholder="Senha" style={{ ...inputStyle, marginTop: 10 }} />
           {error && <p style={{ color: "#C0524E", fontSize: 12, margin: "10px 0 0" }}>{error}</p>}
-          <button type="submit" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, background: C.gold, color: "#fff", marginTop: 16 }}>Entrar</button>
+          <button type="submit" className="btn-primary" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, marginTop: 16 }}>Entrar</button>
         </form>
       </div>
     </div>
@@ -399,7 +438,7 @@ function Gestao({ authed, onLogin, onLogout }) {
           <h1 className="display" style={{ fontSize: "clamp(24px,5vw,32px)", fontWeight: 600, margin: "0 0 4px" }}>Painel de hoje</h1>
           <p style={{ color: C.muted, margin: 0, fontSize: 14 }}>Sábado, 9 de agosto</p>
         </div>
-        <button onClick={onLogout} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.line}`, color: C.muted, fontSize: 13, fontWeight: 500 }}>
+        <button className="btn-ghost" onClick={onLogout} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500 }}>
           <LogOut size={15} /> Sair
         </button>
       </div>
@@ -414,10 +453,10 @@ function Gestao({ authed, onLogin, onLogout }) {
 
       <div className="gestao-grid" style={{ display: "grid", gap: 22, alignItems: "start" }}>
         {/* Agenda */}
-        <div style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
+        <div className="card" style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div style={{ fontWeight: 600, fontSize: 16 }}>Agenda</div>
-            <button onClick={() => setShowNovoAgendamento(true)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, background: "#F7F3EE", border: `1px solid ${C.line}`, color: C.aubergine, fontSize: 12, fontWeight: 600 }}>
+            <button className="chip" onClick={() => setShowNovoAgendamento(true)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, background: "#F7F3EE", border: `1px solid ${C.line}`, color: C.aubergine, fontSize: 12, fontWeight: 600 }}>
               <Plus size={13} /> Agendamento
             </button>
           </div>
@@ -447,10 +486,10 @@ function Gestao({ authed, onLogin, onLogout }) {
 
         {/* Caixa + estoque */}
         <div style={{ display: "grid", gap: 22 }}>
-          <div style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
+          <div className="card" style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ fontWeight: 600, fontSize: 16 }}>Caixa</div>
-              <button onClick={() => setShowNovoRecebimento(true)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, background: "#F7F3EE", border: `1px solid ${C.line}`, color: C.aubergine, fontSize: 12, fontWeight: 600 }}>
+              <button className="chip" onClick={() => setShowNovoRecebimento(true)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, background: "#F7F3EE", border: `1px solid ${C.line}`, color: C.aubergine, fontSize: 12, fontWeight: 600 }}>
                 <Plus size={13} /> Recebimento
               </button>
             </div>
@@ -461,7 +500,7 @@ function Gestao({ authed, onLogin, onLogout }) {
             </div>
           </div>
 
-          <div style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
+          <div className="card" style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}>
             <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Estoque baixo</div>
             {PRODUCTS.filter((p) => p.stock <= 12).map((p) => (
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 10 }}>
@@ -496,8 +535,8 @@ function NovoAgendamentoModal({ onClose, onSave }) {
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(42,35,32,.5)", display: "grid", placeItems: "center", zIndex: 50, padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 22, padding: 28, maxWidth: 360, width: "100%", position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", color: C.muted }}><X size={20} /></button>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ background: "#fff", borderRadius: 22, padding: 28, maxWidth: 360, width: "100%", position: "relative" }}>
+        <button className="icon-btn" onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", color: C.muted, width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center" }}><X size={20} /></button>
         <h3 className="display" style={{ fontSize: 20, margin: "0 0 18px" }}>Novo agendamento</h3>
         <form onSubmit={submit}>
           <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nome da cliente" style={inputStyle} autoFocus />
@@ -512,7 +551,7 @@ function NovoAgendamentoModal({ onClose, onSave }) {
               {SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <button type="submit" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, background: C.gold, color: "#fff", marginTop: 16 }}>Adicionar à agenda</button>
+          <button type="submit" className="btn-primary" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, marginTop: 16 }}>Adicionar à agenda</button>
         </form>
       </div>
     </div>
@@ -535,8 +574,8 @@ function NovoRecebimentoModal({ onClose, onSave }) {
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(42,35,32,.5)", display: "grid", placeItems: "center", zIndex: 50, padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 22, padding: 28, maxWidth: 360, width: "100%", position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", color: C.muted }}><X size={20} /></button>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ background: "#fff", borderRadius: 22, padding: 28, maxWidth: 360, width: "100%", position: "relative" }}>
+        <button className="icon-btn" onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", color: C.muted, width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center" }}><X size={20} /></button>
         <h3 className="display" style={{ fontSize: 20, margin: "0 0 18px" }}>Registrar recebimento</h3>
         <form onSubmit={submit}>
           <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Descrição (ex: Sinal Ana Beatriz)" style={inputStyle} autoFocus />
@@ -546,7 +585,7 @@ function NovoRecebimentoModal({ onClose, onSave }) {
             <option value="produto">Entrada · Produto</option>
             <option value="despesa">Saída · Despesa</option>
           </select>
-          <button type="submit" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, background: C.gold, color: "#fff", marginTop: 16 }}>Registrar</button>
+          <button type="submit" className="btn-primary" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, marginTop: 16 }}>Registrar</button>
         </form>
       </div>
     </div>
@@ -558,9 +597,10 @@ function NovoRecebimentoModal({ onClose, onSave }) {
 // ─────────────────────────────────────────────────────────────
 function TabBtn({ active, onClick, icon, label, count }) {
   return (
-    <button onClick={onClick} style={{
+    <button className="chip" onClick={onClick} style={{
       display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 500,
       background: active ? C.aubergine : C.card, color: active ? "#fff" : C.ink, border: `1px solid ${active ? C.aubergine : C.line}`,
+      boxShadow: active ? "0 4px 12px rgba(61,43,59,.25)" : undefined,
     }}>
       {icon}{label}
       {count > 0 && <span style={{ background: C.gold, color: "#fff", borderRadius: 20, padding: "1px 7px", fontSize: 11, fontWeight: 600 }}>{count}</span>}
@@ -570,7 +610,7 @@ function TabBtn({ active, onClick, icon, label, count }) {
 
 function Kpi({ icon, label, value, accent }) {
   return (
-    <div style={{ background: C.card, borderRadius: 16, padding: 18, border: `1px solid ${C.line}` }}>
+    <div className="card" style={{ background: C.card, borderRadius: 16, padding: 18, border: `1px solid ${C.line}` }}>
       <div style={{ width: 34, height: 34, borderRadius: 10, background: accent + "22", color: accent, display: "grid", placeItems: "center", marginBottom: 12 }}>{icon}</div>
       <div style={{ color: C.muted, fontSize: 12, marginBottom: 3 }}>{label}</div>
       <div className="display" style={{ fontSize: 21, fontWeight: 600 }}>{value}</div>
