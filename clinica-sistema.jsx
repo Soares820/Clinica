@@ -31,6 +31,8 @@ const PRODUCTS = [
   { id: 4, name: "Vela Aromática Relax", price: 42, stock: 15 },
 ];
 
+const PROFESSIONALS = [...new Set(SERVICES.map((s) => s.pro))];
+
 const SLOTS = ["09:00", "10:30", "13:00", "14:30", "16:00", "17:30"];
 
 function buildDates(n) {
@@ -58,6 +60,13 @@ const brl = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL
 export default function App() {
   const [mode, setMode] = useState("cliente"); // cliente | gestao
   const [gestaoAuthed, setGestaoAuthed] = useState(false);
+  const [agendamentos, setAgendamentos] = useState([
+    { date: DATES[0].key, time: "09:00", cliente: "Ana Beatriz", serv: "Massagem Relaxante", pro: "Marina", status: "confirmado" },
+    { date: DATES[0].key, time: "10:30", cliente: "Júlia Menezes", serv: "Volume Russo", pro: "Rafael", status: "confirmado" },
+    { date: DATES[0].key, time: "13:00", cliente: "Carla Dias", serv: "Lash Lifting", pro: "Rafael", status: "pendente" },
+    { date: DATES[0].key, time: "14:30", cliente: "—", serv: "Livre", pro: "—", status: "livre" },
+    { date: DATES[0].key, time: "16:00", cliente: "Paula Reis", serv: "Modeladora", pro: "Marina", status: "confirmado" },
+  ]);
   return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.ink, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`
@@ -142,11 +151,15 @@ export default function App() {
         </div>
       </header>
 
-      {mode === "cliente" ? <Cliente /> : (
+      {mode === "cliente" ? (
+        <Cliente agendamentos={agendamentos} setAgendamentos={setAgendamentos} />
+      ) : (
         <Gestao
           authed={gestaoAuthed}
           onLogin={() => setGestaoAuthed(true)}
           onLogout={() => { setGestaoAuthed(false); setMode("cliente"); }}
+          agendamentos={agendamentos}
+          setAgendamentos={setAgendamentos}
         />
       )}
     </div>
@@ -156,15 +169,20 @@ export default function App() {
 // ─────────────────────────────────────────────────────────────
 // ÁREA DA CLIENTE — agendamento + loja
 // ─────────────────────────────────────────────────────────────
-function Cliente() {
+function Cliente({ agendamentos, setAgendamentos }) {
   const [tab, setTab] = useState("agendar");
   const [selService, setSelService] = useState(null);
+  const [clientName, setClientName] = useState("");
   const [paid, setPaid] = useState(false);
   const [payMethod, setPayMethod] = useState("pix");
   const [selDate, setSelDate] = useState(null);
   const [selSlot, setSelSlot] = useState(null);
   const [cart, setCart] = useState([]);
   const [confirmed, setConfirmed] = useState(null);
+
+  const conflict = !!(selService && selDate && selSlot && agendamentos.some(
+    (a) => a.status !== "livre" && a.date === selDate && a.time === selSlot && a.pro === selService.pro
+  ));
 
   const addCart = (p) => setCart((c) => {
     const f = c.find((x) => x.id === p.id);
@@ -193,7 +211,7 @@ function Cliente() {
         <div className="two-col" style={{ display: "grid", gap: 24, alignItems: "start" }}>
           <div style={{ display: "grid", gap: 14 }}>
             {SERVICES.map((s) => (
-              <button key={s.id} className="lift card" onClick={() => { setSelService(s); setPaid(false); setSelDate(null); setSelSlot(null); }} style={{
+              <button key={s.id} className="lift card" onClick={() => { setSelService(s); setPaid(false); setSelDate(null); setSelSlot(null); setClientName(""); }} style={{
                 textAlign: "left", background: C.card, borderRadius: 16, padding: 20,
                 border: `1.5px solid ${selService?.id === s.id ? C.aubergine : C.line}`,
                 display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -223,6 +241,9 @@ function Cliente() {
               <>
                 <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Pagamento</div>
                 <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px" }}>{selService.name} · {brl(selService.price)}</p>
+                <input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Seu nome" style={{
+                  width: "100%", padding: "11px 13px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, outline: "none", marginBottom: 14,
+                }} />
                 <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
                   {["pix", "cartao"].map((m) => (
                     <button key={m} className="chip" onClick={() => setPayMethod(m)} style={{
@@ -235,7 +256,7 @@ function Cliente() {
                     }}>{m === "pix" ? <QrCode size={15} /> : <CreditCard size={15} />}{m === "pix" ? "Pix" : "Cartão"}</button>
                   ))}
                 </div>
-                <button className="btn-primary" onClick={() => setPaid(true)} style={{ width: "100%", padding: 14, borderRadius: 12, fontWeight: 600, fontSize: 15 }}>
+                <button className="btn-primary" disabled={!clientName.trim()} onClick={() => setPaid(true)} style={{ width: "100%", padding: 14, borderRadius: 12, fontWeight: 600, fontSize: 15 }}>
                   Confirmar pagamento
                 </button>
               </>
@@ -269,7 +290,15 @@ function Cliente() {
                     }}>{t}</button>
                   ))}
                 </div>
-                <button className="btn-primary" disabled={!selDate || !selSlot} onClick={() => setConfirmed({ type: "agenda", service: selService, date: selDate, slot: selSlot, method: payMethod })} style={{
+                {conflict && (
+                  <p style={{ color: "#C0524E", fontSize: 12, margin: "0 0 12px" }}>
+                    {selService.pro} já está ocupado(a) nesse dia e horário. Escolha outro horário ou outro dia.
+                  </p>
+                )}
+                <button className="btn-primary" disabled={!selDate || !selSlot || conflict} onClick={() => {
+                  setAgendamentos((prev) => [...prev, { date: selDate, time: selSlot, pro: selService.pro, cliente: clientName.trim(), serv: selService.name, status: "confirmado" }]);
+                  setConfirmed({ type: "agenda", service: selService, date: selDate, slot: selSlot, method: payMethod });
+                }} style={{
                   width: "100%", padding: 14, borderRadius: 12, fontWeight: 600, fontSize: 15,
                 }}>Confirmar agendamento</button>
               </>
@@ -327,7 +356,7 @@ function Cliente() {
         </div>
       )}
 
-      {confirmed && <Confirm data={confirmed} onClose={() => { setConfirmed(null); setSelService(null); setSelDate(null); setSelSlot(null); setPaid(false); setCart([]); }} />}
+      {confirmed && <Confirm data={confirmed} onClose={() => { setConfirmed(null); setSelService(null); setSelDate(null); setSelSlot(null); setPaid(false); setClientName(""); setCart([]); }} />}
     </div>
   );
 }
@@ -394,14 +423,7 @@ function Login({ onLogin }) {
 // ─────────────────────────────────────────────────────────────
 // PAINEL DE GESTÃO
 // ─────────────────────────────────────────────────────────────
-function Gestao({ authed, onLogin, onLogout }) {
-  const [agenda, setAgenda] = useState([
-    { date: DATES[0].key, time: "09:00", cliente: "Ana Beatriz", serv: "Massagem Relaxante", pro: "Marina", status: "confirmado" },
-    { date: DATES[0].key, time: "10:30", cliente: "Júlia Menezes", serv: "Volume Russo", pro: "Rafael", status: "confirmado" },
-    { date: DATES[0].key, time: "13:00", cliente: "Carla Dias", serv: "Lash Lifting", pro: "Rafael", status: "pendente" },
-    { date: DATES[0].key, time: "14:30", cliente: "—", serv: "Livre", pro: "—", status: "livre" },
-    { date: DATES[0].key, time: "16:00", cliente: "Paula Reis", serv: "Modeladora", pro: "Marina", status: "confirmado" },
-  ]);
+function Gestao({ authed, onLogin, onLogout, agendamentos, setAgendamentos }) {
   const [transactions, setTransactions] = useState([
     { id: 1, desc: "Serviços do dia", value: 1240, type: "servico" },
     { id: 2, desc: "Produtos vendidos", value: 217, type: "produto" },
@@ -415,15 +437,13 @@ function Gestao({ authed, onLogin, onLogout }) {
   const receita = transactions.filter((t) => t.type === "servico").reduce((s, t) => s + t.value, 0);
   const produtos = transactions.filter((t) => t.type === "produto").reduce((s, t) => s + t.value, 0);
   const despesa = transactions.filter((t) => t.type === "despesa").reduce((s, t) => s + t.value, 0);
-  const atendimentos = agenda.filter((a) => a.status !== "livre" && a.date === DATES[0].key).length;
+  const atendimentos = agendamentos.filter((a) => a.status !== "livre" && a.date === DATES[0].key).length;
 
   const addAgendamento = (novo) => {
-    setAgenda((prev) => {
-      const idx = prev.findIndex((a) => a.date === novo.date && a.time === novo.time);
-      const next = idx >= 0 ? prev.map((a, i) => (i === idx ? novo : a)) : [...prev, novo];
-      return [...next].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-    });
-    setShowNovoAgendamento(false);
+    const conflito = agendamentos.some((a) => a.status !== "livre" && a.date === novo.date && a.time === novo.time && a.pro === novo.pro);
+    if (conflito) return false;
+    setAgendamentos((prev) => [...prev, novo].sort((a, b) => (a.date + a.time + a.pro).localeCompare(b.date + b.time + b.pro)));
+    return true;
   };
 
   const addRecebimento = (novo) => {
@@ -461,7 +481,7 @@ function Gestao({ authed, onLogin, onLogout }) {
             </button>
           </div>
           <div style={{ display: "grid", gap: 8 }}>
-            {agenda.map((a, i) => (
+            {agendamentos.map((a, i) => (
               <div key={i} style={{
                 display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", borderRadius: 12,
                 background: a.status === "livre" ? "#FBF8F3" : "#fff",
@@ -521,8 +541,10 @@ function Gestao({ authed, onLogin, onLogout }) {
 function NovoAgendamentoModal({ onClose, onSave }) {
   const [cliente, setCliente] = useState("");
   const [servicoId, setServicoId] = useState(SERVICES[0].id);
+  const [pro, setPro] = useState(SERVICES[0].pro);
   const [date, setDate] = useState(DATES[0].key);
   const [time, setTime] = useState(SLOTS[0]);
+  const [error, setError] = useState("");
 
   const inputStyle = { width: "100%", padding: "11px 13px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, outline: "none", background: "#fff", color: C.ink };
 
@@ -530,7 +552,9 @@ function NovoAgendamentoModal({ onClose, onSave }) {
     e.preventDefault();
     if (!cliente.trim()) return;
     const s = SERVICES.find((x) => x.id === Number(servicoId));
-    onSave({ date, time, cliente: cliente.trim(), serv: s.name, pro: s.pro, status: "confirmado" });
+    const ok = onSave({ date, time, cliente: cliente.trim(), serv: s.name, pro, status: "confirmado" });
+    if (ok) onClose();
+    else setError(`${pro} já tem um agendamento nesse dia e horário.`);
   };
 
   return (
@@ -540,8 +564,14 @@ function NovoAgendamentoModal({ onClose, onSave }) {
         <h3 className="display" style={{ fontSize: 20, margin: "0 0 18px" }}>Novo agendamento</h3>
         <form onSubmit={submit}>
           <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nome da cliente" style={inputStyle} autoFocus />
-          <select value={servicoId} onChange={(e) => setServicoId(e.target.value)} style={{ ...inputStyle, marginTop: 10 }}>
+          <select value={servicoId} onChange={(e) => {
+            setServicoId(e.target.value);
+            setPro(SERVICES.find((x) => x.id === Number(e.target.value)).pro);
+          }} style={{ ...inputStyle, marginTop: 10 }}>
             {SERVICES.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.pro}</option>)}
+          </select>
+          <select value={pro} onChange={(e) => setPro(e.target.value)} style={{ ...inputStyle, marginTop: 10 }}>
+            {PROFESSIONALS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <select value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle}>
@@ -551,6 +581,7 @@ function NovoAgendamentoModal({ onClose, onSave }) {
               {SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
+          {error && <p style={{ color: "#C0524E", fontSize: 12, margin: "10px 0 0" }}>{error}</p>}
           <button type="submit" className="btn-primary" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, marginTop: 16 }}>Adicionar à agenda</button>
         </form>
       </div>
