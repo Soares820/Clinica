@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Calendar, ShoppingBag, Wallet, Clock, Check, Plus, Minus, X, TrendingUp, Users, Flower2, Eye, Hand, Lock, LogOut, CreditCard, QrCode } from "lucide-react";
+import { Calendar, ShoppingBag, Wallet, Clock, Check, Plus, Minus, X, TrendingUp, Users, Flower2, Eye, Hand, CreditCard, QrCode } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
 // Design tokens — estúdio de beleza & bem-estar
@@ -59,7 +59,6 @@ const brl = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL
 // ─────────────────────────────────────────────────────────────
 export default function App() {
   const [mode, setMode] = useState("cliente"); // cliente | gestao
-  const [gestaoAuthed, setGestaoAuthed] = useState(false);
   const [agendamentos, setAgendamentos] = useState([
     { date: DATES[0].key, time: "09:00", cliente: "Ana Beatriz", serv: "Massagem Relaxante", pro: "Marina", status: "confirmado" },
     { date: DATES[0].key, time: "10:30", cliente: "Júlia Menezes", serv: "Volume Russo", pro: "Rafael", status: "confirmado" },
@@ -154,13 +153,7 @@ export default function App() {
       {mode === "cliente" ? (
         <Cliente agendamentos={agendamentos} setAgendamentos={setAgendamentos} />
       ) : (
-        <Gestao
-          authed={gestaoAuthed}
-          onLogin={() => setGestaoAuthed(true)}
-          onLogout={() => { setGestaoAuthed(false); setMode("cliente"); }}
-          agendamentos={agendamentos}
-          setAgendamentos={setAgendamentos}
-        />
+        <Gestao agendamentos={agendamentos} setAgendamentos={setAgendamentos} />
       )}
     </div>
   );
@@ -386,44 +379,9 @@ function Confirm({ data, onClose }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// LOGIN — acesso à gestão
-// ─────────────────────────────────────────────────────────────
-function Login({ onLogin }) {
-  const [user, setUser] = useState("");
-  const [pass, setPass] = useState("");
-  const [error, setError] = useState("");
-
-  const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, outline: "none", background: "#fff", color: C.ink };
-
-  const submit = (e) => {
-    e.preventDefault();
-    if (user === "admin" && pass === "1234") { setError(""); onLogin(); }
-    else setError("Usuário ou senha inválidos.");
-  };
-
-  return (
-    <div style={{ maxWidth: 380, margin: "10vh auto 0", padding: "0 clamp(16px,4vw,24px) 60px" }}>
-      <div className="card" style={{ background: C.card, borderRadius: 18, padding: 28, border: `1px solid ${C.line}` }}>
-        <div style={{ width: 46, height: 46, borderRadius: 12, background: C.aubergine, display: "grid", placeItems: "center", margin: "0 auto 16px", boxShadow: "0 4px 12px rgba(61,43,59,.3)" }}>
-          <Lock size={20} color={C.gold} />
-        </div>
-        <h2 className="display" style={{ fontSize: 22, fontWeight: 600, textAlign: "center", margin: "0 0 4px" }}>Acesso restrito</h2>
-        <p style={{ color: C.muted, fontSize: 13, textAlign: "center", margin: "0 0 22px" }}>Entre com seu usuário e senha para gerenciar o estúdio.</p>
-        <form onSubmit={submit}>
-          <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="Usuário" style={inputStyle} />
-          <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" placeholder="Senha" style={{ ...inputStyle, marginTop: 10 }} />
-          {error && <p style={{ color: "#C0524E", fontSize: 12, margin: "10px 0 0" }}>{error}</p>}
-          <button type="submit" className="btn-primary" style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, marginTop: 16 }}>Entrar</button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
 // PAINEL DE GESTÃO
 // ─────────────────────────────────────────────────────────────
-function Gestao({ authed, onLogin, onLogout, agendamentos, setAgendamentos }) {
+function Gestao({ agendamentos, setAgendamentos }) {
   const [transactions, setTransactions] = useState([
     { id: 1, desc: "Serviços do dia", value: 1240, type: "servico" },
     { id: 2, desc: "Produtos vendidos", value: 217, type: "produto" },
@@ -431,8 +389,6 @@ function Gestao({ authed, onLogin, onLogout, agendamentos, setAgendamentos }) {
   ]);
   const [showNovoAgendamento, setShowNovoAgendamento] = useState(false);
   const [showNovoRecebimento, setShowNovoRecebimento] = useState(false);
-
-  if (!authed) return <Login onLogin={onLogin} />;
 
   const receita = transactions.filter((t) => t.type === "servico").reduce((s, t) => s + t.value, 0);
   const produtos = transactions.filter((t) => t.type === "produto").reduce((s, t) => s + t.value, 0);
@@ -453,14 +409,9 @@ function Gestao({ authed, onLogin, onLogout, agendamentos, setAgendamentos }) {
 
   return (
     <div style={{ maxWidth: 1080, margin: "0 auto", padding: "36px clamp(16px,4vw,24px) 80px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 28 }}>
-        <div>
-          <h1 className="display" style={{ fontSize: "clamp(24px,5vw,32px)", fontWeight: 600, margin: "0 0 4px" }}>Painel de hoje</h1>
-          <p style={{ color: C.muted, margin: 0, fontSize: 14 }}>Sábado, 9 de agosto</p>
-        </div>
-        <button className="btn-ghost" onClick={onLogout} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500 }}>
-          <LogOut size={15} /> Sair
-        </button>
+      <div style={{ marginBottom: 28 }}>
+        <h1 className="display" style={{ fontSize: "clamp(24px,5vw,32px)", fontWeight: 600, margin: "0 0 4px" }}>Painel de hoje</h1>
+        <p style={{ color: C.muted, margin: 0, fontSize: 14 }}>Sábado, 9 de agosto</p>
       </div>
 
       {/* KPIs */}
