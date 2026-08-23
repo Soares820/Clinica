@@ -28,9 +28,7 @@ import {
   Phone,
   Receipt,
   UserCheck,
-  ChevronRight,
-  Lock,
-  LogOut
+  ChevronRight
 } from "lucide-react";
 import * as db from "./db/queries.js";
 
@@ -956,7 +954,6 @@ export function calcularExtratoComissoes({ agendamentos = [], profissionais = []
 // ─────────────────────────────────────────────────────────────
 export default function App() {
   const [mode, setMode] = useState("cliente");
-  const [gestaoAuthed, setGestaoAuthed] = useState(false);
   const [clientes, setClientes] = useState([]);
   const [profissionais, setProfissionais] = useState([]);
   const [servicos, setServicos] = useState([]);
@@ -1130,8 +1127,6 @@ export default function App() {
           clientesPacotes={clientesPacotes}
           setClientesPacotes={setClientesPacotes}
         />
-      ) : !gestaoAuthed ? (
-        <Login onLogin={() => setGestaoAuthed(true)} />
       ) : (
         <GestaoView
           clientes={clientes}
@@ -1153,88 +1148,8 @@ export default function App() {
           produtos={produtos}
           setProdutos={setProdutos}
           produtosVendidos={produtosVendidos}
-          onLogout={() => {
-            setGestaoAuthed(false);
-            setMode("cliente");
-          }}
         />
       )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// LOGIN — acesso à gestão
-// ─────────────────────────────────────────────────────────────
-
-function Login({ onLogin }) {
-  const [user, setUser] = useState("");
-  const [pass, setPass] = useState("");
-  const [error, setError] = useState("");
-
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 10,
-    border: `1px solid ${C.line}`,
-    fontSize: 14,
-    outline: "none",
-    background: "#fff",
-    color: C.ink,
-  };
-
-  const submit = (e) => {
-    e.preventDefault();
-    if (user === "admin" && pass === "1234") {
-      setError("");
-      onLogin();
-    } else {
-      setError("Usuário ou senha inválidos.");
-    }
-  };
-
-  return (
-    <div style={{ maxWidth: 380, margin: "10vh auto 0", padding: "0 clamp(16px,4vw,24px) 60px" }}>
-      <div className="card" style={{ background: C.card, borderRadius: 18, padding: 28, border: `1px solid ${C.line}` }}>
-        <div
-          style={{
-            width: 46,
-            height: 46,
-            borderRadius: 12,
-            background: C.aubergine,
-            display: "grid",
-            placeItems: "center",
-            margin: "0 auto 16px",
-            boxShadow: "0 4px 12px rgba(61,43,59,.3)",
-          }}
-        >
-          <Lock size={20} color={C.gold} />
-        </div>
-        <h2 className="display" style={{ fontSize: 22, fontWeight: 600, textAlign: "center", margin: "0 0 4px" }}>
-          Acesso restrito
-        </h2>
-        <p style={{ color: C.muted, fontSize: 13, textAlign: "center", margin: "0 0 22px" }}>
-          Entre com seu usuário e senha para gerenciar o estúdio.
-        </p>
-        <form onSubmit={submit}>
-          <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="Usuário" style={inputStyle} />
-          <input
-            value={pass}
-            onChange={(e) => setPass(e.target.value)}
-            type="password"
-            placeholder="Senha"
-            style={{ ...inputStyle, marginTop: 10 }}
-          />
-          {error && <p style={{ color: C.danger, fontSize: 12, margin: "10px 0 0" }}>{error}</p>}
-          <button
-            type="submit"
-            className="btn-primary"
-            style={{ width: "100%", padding: 13, borderRadius: 12, fontWeight: 600, fontSize: 15, marginTop: 16 }}
-          >
-            Entrar
-          </button>
-        </form>
-      </div>
     </div>
   );
 }
@@ -1263,7 +1178,6 @@ function GestaoView({
   produtos,
   setProdutos,
   produtosVendidos,
-  onLogout,
 }) {
   const [activeTab, setActiveTab] = useState("agenda"); // agenda | dre | pacotes | repasses | clientes
   const [selectedDate, setSelectedDate] = useState(DATES[0].key);
@@ -1425,21 +1339,6 @@ function GestaoView({
             }}
           >
             <Package size={16} /> Vender Pacote
-          </button>
-          <button
-            className="btn-ghost"
-            onClick={onLogout}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "10px 16px",
-              borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            <LogOut size={16} /> Sair
           </button>
         </div>
       </div>
