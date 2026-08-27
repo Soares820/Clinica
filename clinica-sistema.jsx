@@ -1081,7 +1081,13 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
-        html, body { max-width: 100%; overflow-x: hidden; }
+        html, body { max-width: 100%; overflow-x: hidden; background: ${C.bg}; }
+        ::selection { background: ${C.aubergine}; color: #fff; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: ${C.bg}; }
+        ::-webkit-scrollbar-thumb { background: #2E2A45; border-radius: 6px; border: 2px solid ${C.bg}; }
+        ::-webkit-scrollbar-thumb:hover { background: ${C.aubergine}; }
+        * { scrollbar-color: #2E2A45 ${C.bg}; }
         .display { font-family: 'Fraunces', serif; }
         button { font-family: inherit; color: inherit; background: none; cursor: pointer; border: none; -webkit-tap-highlight-color: transparent; }
         button, .lift, input, select {
@@ -3160,7 +3166,8 @@ function NovoAgendamentoModal({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(42,35,32,.5)",
+        background: "rgba(5,4,10,.72)",
+        backdropFilter: "blur(6px)",
         display: "grid",
         placeItems: "center",
         zIndex: 50,
@@ -3429,7 +3436,8 @@ function NovaDespesaModal({ onClose, onSave }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(42,35,32,.5)",
+        background: "rgba(5,4,10,.72)",
+        backdropFilter: "blur(6px)",
         display: "grid",
         placeItems: "center",
         zIndex: 50,
@@ -3579,7 +3587,8 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave })
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(42,35,32,.5)",
+        background: "rgba(5,4,10,.72)",
+        backdropFilter: "blur(6px)",
         display: "grid",
         placeItems: "center",
         zIndex: 50,
@@ -3690,7 +3699,8 @@ function ConfirmModal({ data, onClose }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(42,35,32,.5)",
+        background: "rgba(5,4,10,.72)",
+        backdropFilter: "blur(6px)",
         display: "grid",
         placeItems: "center",
         zIndex: 50,
@@ -3856,24 +3866,28 @@ function NavTabButton({ active, onClick, icon, label, count }) {
 function Kpi({ icon, label, value, sub, accent }) {
   return (
     <div
-      className="card"
+      className="card lift"
       style={{
-        background: C.card,
+        position: "relative",
+        overflow: "hidden",
+        background: `linear-gradient(160deg, ${accent}14 0%, ${C.card} 45%)`,
         borderRadius: 16,
         padding: 18,
         border: `1px solid ${C.line}`,
       }}
     >
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: accent, opacity: 0.85 }} />
       <div
         style={{
           width: 36,
           height: 36,
           borderRadius: 10,
-          background: accent + "22",
+          background: accent + "26",
           color: accent,
           display: "grid",
           placeItems: "center",
           marginBottom: 10,
+          boxShadow: `0 0 16px -2px ${accent}66`,
         }}
       >
         {icon}
