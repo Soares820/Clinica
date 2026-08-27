@@ -1303,14 +1303,24 @@ function GestaoView({
   return (
     <div style={{ maxWidth: 1160, margin: "0 auto", padding: "28px clamp(16px,4vw,24px) 80px" }}>
       {/* Top Banner do Painel */}
+      <div style={{ position: "relative", marginBottom: 24 }}>
+        <div
+          aria-hidden="true"
+          style={{ position: "absolute", inset: "-60px -20px -30px", overflow: "hidden", pointerEvents: "none", zIndex: 0 }}
+        >
+          <div className="aurora-blob aurora-blob-a" />
+          <div className="aurora-blob aurora-blob-b" />
+          <div className="aurora-blob aurora-blob-c" />
+        </div>
       <div
         style={{
+          position: "relative",
+          zIndex: 1,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-end",
           flexWrap: "wrap",
           gap: 16,
-          marginBottom: 24,
         }}
       >
         <div>
@@ -1381,6 +1391,7 @@ function GestaoView({
             <Package size={16} /> Vender Pacote
           </button>
         </div>
+      </div>
       </div>
 
       {/* KPI Cards Rápidos */}
