@@ -317,17 +317,43 @@ export async function criarDespesa(desp) {
 }
 
 export async function criarPacoteCliente(novoPac) {
-  unwrap(
-    await supabase.from("clientes_pacotes").insert({
-      cliente_id: novoPac.clienteId,
-      servico_id: novoPac.servicoId,
-      total_sessoes: novoPac.totalSessoes,
-      sessoes_usadas: novoPac.sessoesUsadas || 0,
-      valor_pago: novoPac.valorPago,
-      data_compra: novoPac.dataCompra,
-      status: novoPac.status || "ativo",
-    })
+  // .select().single() para devolver o id real gerado pelo banco —
+  // quem chama precisa dele para já vincular um agendamento a este
+  // pacote na mesma operação (ver NovoPacoteModal).
+  const row = unwrap(
+    await supabase
+      .from("clientes_pacotes")
+      .insert({
+        cliente_id: novoPac.clienteId,
+        servico_id: novoPac.servicoId,
+        total_sessoes: novoPac.totalSessoes,
+        sessoes_usadas: novoPac.sessoesUsadas || 0,
+        valor_pago: novoPac.valorPago,
+        data_compra: novoPac.dataCompra,
+        status: novoPac.status || "ativo",
+      })
+      .select()
+      .single()
   );
+  return row;
+}
+
+export async function criarModeloPacote(modelo) {
+  const row = unwrap(
+    await supabase
+      .from("modelos_pacote")
+      .insert({
+        nome: modelo.nome,
+        servico_id: modelo.servicoId,
+        total_sessoes: modelo.totalSessoes,
+        preco_total: modelo.precoTotal,
+        validade_dias: modelo.validadeDias,
+        ativo: true,
+      })
+      .select()
+      .single()
+  );
+  return mapModeloPacote(row);
 }
 
 // ─────────────────────────────────────────────────────────────

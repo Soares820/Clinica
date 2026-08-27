@@ -2493,14 +2493,52 @@ function GestaoView({
           clientes={clientes}
           modelosPacote={modelosPacote}
           servicos={servicos}
+          profissionais={profissionais}
+          agendamentos={agendamentos}
           onClose={() => setShowNovoPacoteModal(false)}
-          onSave={async (novoPac) => {
+          onSave={async (payload) => {
             try {
-              await db.criarPacoteCliente(novoPac);
+              let modelo = payload.modeloExistente;
+
+              if (payload.novoModelo) {
+                modelo = await db.criarModeloPacote(payload.novoModelo);
+                setModelosPacote(await db.listarModelosPacote());
+              }
+
+              const pacoteRow = await db.criarPacoteCliente({
+                clienteId: payload.cliente.id,
+                servicoId: modelo.servicoId,
+                totalSessoes: modelo.totalSessoes,
+                sessoesUsadas: 0,
+                valorPago: modelo.precoTotal,
+                dataCompra: new Date().toISOString().split("T")[0],
+                status: "ativo",
+              });
               setClientesPacotes(await db.listarClientesPacotes());
+
+              if (payload.agendamento) {
+                await db.criarAgendamentoGestao({
+                  data: payload.agendamento.date,
+                  horario: payload.agendamento.time,
+                  clienteId: payload.cliente.id,
+                  clienteNome: payload.cliente.nome,
+                  servicoId: modelo.servicoId,
+                  profissionalId: payload.agendamento.profissionalId,
+                  status: "confirmado",
+                  tipoPagamento: "pacote_sessao",
+                  pacoteUtilizadoId: pacoteRow.id,
+                });
+                const [novosAgendamentos, novosPacotes] = await Promise.all([
+                  db.listarAgendamentos(),
+                  db.listarClientesPacotes(),
+                ]);
+                setAgendamentos(novosAgendamentos);
+                setClientesPacotes(novosPacotes);
+              }
+
               setShowNovoPacoteModal(false);
             } catch (err) {
-              window.alert(err.message || "Não foi possível registrar o pacote.");
+              window.alert(err.message || "Não foi possível concluir a venda do pacote.");
             }
           }}
         />
@@ -3545,29 +3583,68 @@ function NovaDespesaModal({ onClose, onSave }) {
   );
 }
 
-function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave }) {
+function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, agendamentos, onClose, onSave }) {
+  const [modeloTipo, setModeloTipo] = useState(modelosPacote.length ? "existente" : "novo"); // 'existente' | 'novo'
   const [clienteId, setClienteId] = useState(clientes[0]?.id || "");
   const [modeloId, setModeloId] = useState(modelosPacote[0]?.id || "");
 
+  const [novoNome, setNovoNome] = useState("");
+  const [novoServicoId, setNovoServicoId] = useState(servicos[0]?.id || "");
+  const [novoTotalSessoes, setNovoTotalSessoes] = useState(4);
+  const [novoPrecoTotal, setNovoPrecoTotal] = useState("");
+  const [novoValidadeDias, setNovoValidadeDias] = useState(90);
+
+  const [agendarAgora, setAgendarAgora] = useState(false);
+  const [profissionalId, setProfissionalId] = useState(profissionais[0]?.id || "");
+  const [date, setDate] = useState(DATES[0].key);
+  const [time, setTime] = useState(SLOTS[0]);
+
   const modSel = modelosPacote.find((m) => m.id === modeloId);
   const cliSel = clientes.find((c) => c.id === clienteId);
-  const srvSel = servicos.find((s) => s.id === modSel?.servicoId);
+
+  // Resumo mostrado (do modelo existente ou do novo modelo sendo criado)
+  const resumo = modeloTipo === "existente"
+    ? modSel && { totalSessoes: modSel.totalSessoes, precoTotal: modSel.precoTotal, validadeDias: modSel.validadeDias }
+    : novoPrecoTotal && novoTotalSessoes
+      ? { totalSessoes: Number(novoTotalSessoes), precoTotal: Number(novoPrecoTotal), validadeDias: Number(novoValidadeDias) }
+      : null;
+
+  const conflict = !!(
+    agendarAgora &&
+    profissionalId &&
+    date &&
+    time &&
+    agendamentos.some(
+      (a) => a.status !== "cancelado" && a.data === date && a.horario === time && a.profissionalId === profissionalId
+    )
+  );
+
+  const novoModeloValido =
+    novoNome.trim() && novoServicoId && Number(novoTotalSessoes) > 0 && Number(novoPrecoTotal) > 0;
+
+  const podeSubmeter =
+    !!cliSel &&
+    (modeloTipo === "existente" ? !!modSel : novoModeloValido) &&
+    (!agendarAgora || (!!profissionalId && !conflict));
 
   const submit = (e) => {
     e.preventDefault();
-    if (!cliSel || !modSel) return;
+    if (!podeSubmeter) return;
 
     onSave({
-      id: `cpac-${Date.now()}`,
-      clienteId: cliSel.id,
-      clienteNome: cliSel.nome,
-      servicoId: modSel.servicoId,
-      servicoNome: srvSel?.nome || modSel.nome,
-      totalSessoes: modSel.totalSessoes,
-      sessoesUsadas: 0,
-      valorPago: modSel.precoTotal,
-      dataCompra: new Date().toISOString().split("T")[0],
-      status: "ativo",
+      cliente: cliSel,
+      modeloExistente: modeloTipo === "existente" ? modSel : null,
+      novoModelo:
+        modeloTipo === "novo"
+          ? {
+              nome: novoNome.trim(),
+              servicoId: novoServicoId,
+              totalSessoes: Number(novoTotalSessoes),
+              precoTotal: Number(novoPrecoTotal),
+              validadeDias: Number(novoValidadeDias),
+            }
+          : null,
+      agendamento: agendarAgora ? { profissionalId, date, time } : null,
     });
   };
 
@@ -3579,6 +3656,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave })
     fontSize: 14,
     outline: "none",
     background: C.card,
+    color: C.ink,
   };
 
   return (
@@ -3602,9 +3680,11 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave })
           background: C.card,
           borderRadius: 22,
           padding: 26,
-          maxWidth: 400,
+          maxWidth: 440,
           width: "100%",
           position: "relative",
+          maxHeight: "90vh",
+          overflowY: "auto",
         }}
       >
         <button
@@ -3642,18 +3722,116 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave })
             </select>
           </div>
 
-          <div style={{ display: "grid", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Modelo de Pacote:</label>
-            <select value={modeloId} onChange={(e) => setModeloId(e.target.value)} style={inputStyle}>
-              {modelosPacote.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome} · {m.totalSessoes}x por {brl(m.precoTotal)}
-                </option>
-              ))}
-            </select>
+          {/* Tipo de modelo */}
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              className="chip"
+              onClick={() => setModeloTipo("existente")}
+              style={{
+                flex: 1,
+                padding: "8px 0",
+                fontSize: 12,
+                fontWeight: 600,
+                borderRadius: 8,
+                background: modeloTipo === "existente" ? C.aubergine : "rgba(255,255,255,.07)",
+                color: modeloTipo === "existente" ? "#fff" : C.ink,
+              }}
+            >
+              Modelo Existente
+            </button>
+            <button
+              type="button"
+              className="chip"
+              onClick={() => setModeloTipo("novo")}
+              style={{
+                flex: 1,
+                padding: "8px 0",
+                fontSize: 12,
+                fontWeight: 600,
+                borderRadius: 8,
+                background: modeloTipo === "novo" ? C.aubergine : "rgba(255,255,255,.07)",
+                color: modeloTipo === "novo" ? "#fff" : C.ink,
+              }}
+            >
+              Cadastrar Novo Modelo
+            </button>
           </div>
 
-          {modSel && (
+          {modeloTipo === "existente" ? (
+            modelosPacote.length ? (
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Modelo de Pacote:</label>
+                <select value={modeloId} onChange={(e) => setModeloId(e.target.value)} style={inputStyle}>
+                  {modelosPacote.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nome} · {m.totalSessoes}x por {brl(m.precoTotal)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>
+                Nenhum modelo cadastrado ainda — use "Cadastrar Novo Modelo" acima.
+              </p>
+            )
+          ) : (
+            <>
+              <input
+                value={novoNome}
+                onChange={(e) => setNovoNome(e.target.value)}
+                placeholder="Nome do pacote (ex: Combo 4x Massagem)"
+                style={inputStyle}
+                required
+              />
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Serviço vinculado:</label>
+                <select value={novoServicoId} onChange={(e) => setNovoServicoId(e.target.value)} style={inputStyle}>
+                  {servicos.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Sessões:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={novoTotalSessoes}
+                    onChange={(e) => setNovoTotalSessoes(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Preço total (R$):</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={novoPrecoTotal}
+                    onChange={(e) => setNovoPrecoTotal(e.target.value)}
+                    placeholder="0,00"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Validade (dias):</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={novoValidadeDias}
+                    onChange={(e) => setNovoValidadeDias(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {resumo && (
             <div
               style={{
                 background: "rgba(255,255,255,.06)",
@@ -3664,17 +3842,83 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave })
               }}
             >
               <div>
-                Valor unitário por sessão: <strong>{brl(modSel.precoTotal / modSel.totalSessoes)}</strong>
+                Valor unitário por sessão:{" "}
+                <strong>{brl(resumo.precoTotal / resumo.totalSessoes)}</strong>
               </div>
               <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>
-                Validade: {modSel.validadeDias} dias a partir da data de compra
+                Validade: {resumo.validadeDias} dias a partir da data de compra
               </div>
+            </div>
+          )}
+
+          {/* Agendar a 1ª sessão agora — pra quando a cliente compra na hora e não vai agendar sozinha */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              color: C.ink,
+              cursor: "pointer",
+              marginTop: 4,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={agendarAgora}
+              onChange={(e) => setAgendarAgora(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: C.aubergine }}
+            />
+            Agendar a 1ª sessão agora (cliente não vai agendar sozinha)
+          </label>
+
+          {agendarAgora && (
+            <div style={{ display: "grid", gap: 10, padding: 12, borderRadius: 10, border: `1px solid ${C.line}`, background: "rgba(255,255,255,.04)" }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Profissional:</label>
+                <select value={profissionalId} onChange={(e) => setProfissionalId(e.target.value)} style={inputStyle}>
+                  {profissionais.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} · {p.cargo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Data:</label>
+                  <select value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle}>
+                    {DATES.map((d) => (
+                      <option key={d.key} value={d.key}>
+                        {d.display}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Horário:</label>
+                  <select value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle}>
+                    {SLOTS.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {conflict && (
+                <p style={{ color: C.danger, fontSize: 12, margin: 0 }}>
+                  {profissionais.find((p) => p.id === profissionalId)?.nome} já tem um atendimento nesse dia e horário.
+                </p>
+              )}
             </div>
           )}
 
           <button
             type="submit"
             className="btn-primary"
+            disabled={!podeSubmeter}
             style={{
               width: "100%",
               padding: 13,
