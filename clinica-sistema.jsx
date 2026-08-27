@@ -173,34 +173,34 @@ function AuroraBackdrop() {
         style={{
           position: "absolute",
           inset: 0,
-          opacity: 0.6,
+          opacity: 0.9,
           backgroundImage:
-            "radial-gradient(circle at 30% 20%, rgba(139,92,246,.22) 0%, transparent 60%), radial-gradient(circle at 75% 70%, rgba(232,121,249,.16) 0%, transparent 60%)",
-          animation: "auroraFieldPulse 12s ease-in-out infinite",
+            "radial-gradient(circle at 28% 24%, rgba(139,92,246,.55) 0%, transparent 55%), radial-gradient(circle at 78% 68%, rgba(232,121,249,.45) 0%, transparent 55%)",
+          animation: "auroraFieldPulse 10s ease-in-out infinite",
         }}
       />
       <div
         className="aurora-blob"
         style={{
-          position: "absolute", width: 460, height: 460, left: "-10%", top: "-12%", borderRadius: "50%",
-          filter: "blur(90px)", background: C.aubergine, opacity: 0.35,
-          animation: "auroraDrift1 26s ease-in-out infinite",
+          position: "absolute", width: 680, height: 680, left: "-16%", top: "-18%", borderRadius: "50%",
+          filter: "blur(80px)", background: C.aubergine, opacity: 0.65,
+          animation: "auroraDrift1 22s ease-in-out infinite",
         }}
       />
       <div
         className="aurora-blob"
         style={{
-          position: "absolute", width: 380, height: 380, right: "-8%", top: "6%", borderRadius: "50%",
-          filter: "blur(90px)", background: C.blush, opacity: 0.28,
-          animation: "auroraDrift2 30s ease-in-out infinite",
+          position: "absolute", width: 560, height: 560, right: "-12%", top: "0%", borderRadius: "50%",
+          filter: "blur(80px)", background: C.blush, opacity: 0.55,
+          animation: "auroraDrift2 26s ease-in-out infinite",
         }}
       />
       <div
         className="aurora-blob"
         style={{
-          position: "absolute", width: 340, height: 340, left: "28%", bottom: "-16%", borderRadius: "50%",
-          filter: "blur(90px)", background: "#6366F1", opacity: 0.3,
-          animation: "auroraPulse 18s ease-in-out infinite",
+          position: "absolute", width: 520, height: 520, left: "22%", bottom: "-22%", borderRadius: "50%",
+          filter: "blur(80px)", background: "#6366F1", opacity: 0.55,
+          animation: "auroraPulse 16s ease-in-out infinite",
         }}
       />
       {AURORA_STARS.map((s, i) => (
@@ -1083,7 +1083,7 @@ export default function App() {
         * { box-sizing: border-box; }
         html, body { max-width: 100%; overflow-x: hidden; }
         .display { font-family: 'Fraunces', serif; }
-        button { font-family: inherit; cursor: pointer; border: none; -webkit-tap-highlight-color: transparent; }
+        button { font-family: inherit; color: inherit; background: none; cursor: pointer; border: none; -webkit-tap-highlight-color: transparent; }
         button, .lift, input, select {
           transition: transform .16s cubic-bezier(.22,1,.36,1), box-shadow .18s ease, filter .16s ease,
             background .18s ease, background-color .18s ease, border-color .16s ease, color .16s ease;
@@ -1092,7 +1092,10 @@ export default function App() {
         button:focus-visible, input:focus-visible, select:focus-visible {
           outline: 2px solid ${C.gold}; outline-offset: 2px;
         }
-        input:focus, select:focus { border-color: ${C.gold} !important; box-shadow: 0 0 0 4px rgba(192,138,78,.14); }
+        input, select { color: ${C.ink}; }
+        input::placeholder { color: ${C.muted}; opacity: 1; }
+        select option { background: ${C.card}; color: ${C.ink}; }
+        input:focus, select:focus { border-color: ${C.gold} !important; box-shadow: 0 0 0 4px rgba(224,168,96,.16); }
 
         .card { box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 12px 28px -14px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04); }
 
