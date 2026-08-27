@@ -1065,6 +1065,38 @@ export default function App() {
         a, .link-hover { transition: color .16s ease; }
         .link-hover:hover { color: ${C.gold} !important; }
 
+        .aurora-blob { position: absolute; border-radius: 50%; filter: blur(70px); will-change: transform, opacity; }
+        .aurora-blob-a {
+          width: 340px; height: 340px; left: -70px; top: -90px;
+          background: ${C.aubergine}; opacity: .4;
+          animation: auroraDrift1 22s ease-in-out infinite;
+        }
+        .aurora-blob-b {
+          width: 280px; height: 280px; right: 6%; top: -50px;
+          background: ${C.gold}; opacity: .28;
+          animation: auroraDrift2 26s ease-in-out infinite;
+        }
+        .aurora-blob-c {
+          width: 240px; height: 240px; left: 32%; bottom: -110px;
+          background: ${C.sage}; opacity: .32;
+          animation: auroraPulse 15s ease-in-out infinite;
+        }
+        @keyframes auroraDrift1 {
+          0%, 100% { transform: translate(0,0) scale(1); }
+          50% { transform: translate(40px,24px) scale(1.15); }
+        }
+        @keyframes auroraDrift2 {
+          0%, 100% { transform: translate(0,0) scale(1); }
+          50% { transform: translate(-32px,26px) scale(1.1); }
+        }
+        @keyframes auroraPulse {
+          0%, 100% { opacity: .28; transform: scale(1); }
+          50% { opacity: .48; transform: scale(1.12); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .aurora-blob { animation: none !important; }
+        }
+
         .two-col { grid-template-columns: 1fr; }
         .produtos-grid { grid-template-columns: 1fr; }
         .kpi-grid { grid-template-columns: repeat(2,1fr); }
@@ -2471,32 +2503,42 @@ function ClienteView({
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px clamp(16px,4vw,24px) 80px" }}>
       {/* Hero */}
-      <div style={{ marginBottom: 36 }}>
-        <p
-          style={{
-            color: C.gold,
-            fontWeight: 600,
-            fontSize: 13,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            margin: "0 0 8px",
-          }}
+      <div style={{ position: "relative", marginBottom: 36 }}>
+        <div
+          aria-hidden="true"
+          style={{ position: "absolute", inset: "-70px -20px -40px", overflow: "hidden", pointerEvents: "none", zIndex: 0 }}
         >
-          Cuidar de você é o ritual
-        </p>
-        <h1
-          className="display"
-          style={{
-            fontSize: "clamp(28px,7vw,44px)",
-            fontWeight: 600,
-            letterSpacing: "-0.03em",
-            margin: 0,
-            lineHeight: 1.1,
-            maxWidth: 560,
-          }}
-        >
-          Reserve seu momento e leve o cuidado pra casa.
-        </h1>
+          <div className="aurora-blob aurora-blob-a" />
+          <div className="aurora-blob aurora-blob-b" />
+          <div className="aurora-blob aurora-blob-c" />
+        </div>
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <p
+            style={{
+              color: C.gold,
+              fontWeight: 600,
+              fontSize: 13,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              margin: "0 0 8px",
+            }}
+          >
+            Cuidar de você é o ritual
+          </p>
+          <h1
+            className="display"
+            style={{
+              fontSize: "clamp(28px,7vw,44px)",
+              fontWeight: 600,
+              letterSpacing: "-0.03em",
+              margin: 0,
+              lineHeight: 1.1,
+              maxWidth: 560,
+            }}
+          >
+            Reserve seu momento e leve o cuidado pra casa.
+          </h1>
+        </div>
       </div>
 
       {/* Tabs */}
