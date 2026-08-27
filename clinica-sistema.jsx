@@ -155,15 +155,15 @@ import * as db from "./db/queries.js";
 // 2. DESIGN TOKENS & HELPERS VISUAIS
 // ─────────────────────────────────────────────────────────────
 const C = {
-  bg: "#F7F3EE",
-  ink: "#2A2320",
-  aubergine: "#3D2B3B",
-  sage: "#8A9A7B",
+  bg: "#F5F2EA",
+  ink: "#22302B",
+  aubergine: "#1F4A45",
+  sage: "#7FA396",
   blush: "#E8C5C0",
   gold: "#C08A4E",
   card: "#FFFFFF",
-  line: "#E7DFD5",
-  muted: "#8A7F76",
+  line: "#E1E0D5",
+  muted: "#758079",
   danger: "#C85A54",
   success: "#4E8A5E",
 };
@@ -1030,18 +1030,19 @@ export default function App() {
         }
         input:focus, select:focus { border-color: ${C.gold} !important; box-shadow: 0 0 0 4px rgba(192,138,78,.14); }
 
-        .card { box-shadow: 0 1px 2px rgba(42,35,32,.05), 0 12px 28px -14px rgba(42,35,32,.16); }
+        .card { box-shadow: 0 1px 2px rgba(34,48,43,.05), 0 12px 28px -14px rgba(34,48,43,.16); }
 
-        .lift:hover { transform: translateY(-3px); box-shadow: 0 18px 34px -16px rgba(42,35,32,.22); }
+        .lift:hover { transform: translateY(-3px); box-shadow: 0 18px 34px -16px rgba(34,48,43,.22); border-color: ${C.sage} !important; }
         .lift:active { transform: translateY(-1px); }
 
-        .chip:hover:not(:disabled) { border-color: ${C.aubergine}; }
-        .chip:active:not(:disabled) { transform: scale(0.96); }
+        .chip { position: relative; overflow: hidden; }
+        .chip:hover:not(:disabled) { border-color: ${C.aubergine}; filter: brightness(0.97); box-shadow: 0 3px 10px rgba(31,74,69,.14); }
+        .chip:active:not(:disabled) { transform: scale(0.96); filter: brightness(0.94); }
 
-        .icon-btn:hover:not(:disabled) { background: #EFE4D6 !important; }
+        .icon-btn:hover:not(:disabled) { background: #E4EEEA !important; color: ${C.aubergine} !important; }
         .icon-btn:active:not(:disabled) { transform: scale(0.90); }
 
-        .icon-btn-dark:hover:not(:disabled) { filter: brightness(1.18); transform: translateY(-1px); }
+        .icon-btn-dark:hover:not(:disabled) { filter: brightness(1.22) saturate(1.1); transform: translateY(-1px); }
         .icon-btn-dark:active:not(:disabled) { transform: translateY(0) scale(0.90); }
 
         .btn-primary {
@@ -1049,13 +1050,20 @@ export default function App() {
           color: #fff !important;
           box-shadow: 0 3px 10px rgba(176,122,58,.32), inset 0 1px 0 rgba(255,255,255,.25);
         }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 28px -6px rgba(176,122,58,.45), inset 0 1px 0 rgba(255,255,255,.3); filter: brightness(1.04); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 28px -6px rgba(176,122,58,.45), inset 0 1px 0 rgba(255,255,255,.3); filter: brightness(1.08) saturate(1.05); }
         .btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 3px 10px rgba(176,122,58,.32); }
         .btn-primary:disabled { background: ${C.line} !important; color: ${C.muted} !important; box-shadow: none; }
 
+        .btn-dark { background: ${C.aubergine} !important; color: #fff !important; box-shadow: 0 3px 10px rgba(31,74,69,.28); }
+        .btn-dark:hover:not(:disabled) { filter: brightness(1.18); transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(31,74,69,.4); }
+        .btn-dark:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+
         .btn-ghost { background: ${C.card}; border: 1px solid ${C.line}; color: ${C.muted}; }
-        .btn-ghost:hover:not(:disabled) { border-color: ${C.aubergine}; color: ${C.aubergine}; background: #FBF8F3; }
+        .btn-ghost:hover:not(:disabled) { border-color: ${C.aubergine}; color: ${C.aubergine}; background: #EEF4F1; box-shadow: 0 3px 10px rgba(31,74,69,.10); }
         .btn-ghost:active:not(:disabled) { transform: scale(0.97); }
+
+        a, .link-hover { transition: color .16s ease; }
+        .link-hover:hover { color: ${C.gold} !important; }
 
         .two-col { grid-template-columns: 1fr; }
         .produtos-grid { grid-template-columns: 1fr; }
@@ -1104,7 +1112,7 @@ export default function App() {
                 fontWeight: 600,
                 background: mode === m ? C.aubergine : "transparent",
                 color: mode === m ? "#fff" : C.muted,
-                boxShadow: mode === m ? "0 3px 10px rgba(61,43,59,.28)" : "none",
+                boxShadow: mode === m ? "0 3px 10px rgba(31,74,69,.28)" : "none",
                 border: "1px solid transparent",
               }}
             >
@@ -1451,7 +1459,7 @@ function GestaoView({
                     background: isSelected ? C.aubergine : C.card,
                     color: isSelected ? "#fff" : C.ink,
                     border: `1.5px solid ${isSelected ? C.aubergine : C.line}`,
-                    boxShadow: isSelected ? "0 4px 14px rgba(61,43,59,.22)" : "none",
+                    boxShadow: isSelected ? "0 4px 14px rgba(31,74,69,.22)" : "none",
                   }}
                 >
                   <div style={{ fontSize: 12, fontWeight: 500, opacity: isSelected ? 0.9 : 0.7 }}>
@@ -2533,7 +2541,7 @@ function ClienteView({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    boxShadow: isSelected ? "0 10px 26px -8px rgba(61,43,59,.35)" : undefined,
+                    boxShadow: isSelected ? "0 10px 26px -8px rgba(31,74,69,.35)" : undefined,
                   }}
                 >
                   <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
@@ -2779,7 +2787,7 @@ function ClienteView({
                       color: "#fff",
                       display: "grid",
                       placeItems: "center",
-                      boxShadow: "0 3px 8px rgba(61,43,59,.28)",
+                      boxShadow: "0 3px 8px rgba(31,74,69,.28)",
                     }}
                   >
                     <Plus size={18} />
@@ -3654,7 +3662,7 @@ function TabBtn({ active, onClick, icon, label, count }) {
         background: active ? C.aubergine : C.card,
         color: active ? "#fff" : C.ink,
         border: `1px solid ${active ? C.aubergine : C.line}`,
-        boxShadow: active ? "0 4px 12px rgba(61,43,59,.25)" : undefined,
+        boxShadow: active ? "0 4px 12px rgba(31,74,69,.25)" : undefined,
       }}
     >
       {icon}
