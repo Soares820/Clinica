@@ -154,18 +154,82 @@ import * as db from "./db/queries.js";
 // ─────────────────────────────────────────────────────────────
 // 2. DESIGN TOKENS & HELPERS VISUAIS
 // ─────────────────────────────────────────────────────────────
+const AURORA_STARS = Array.from({ length: 60 }, () => ({
+  left: `${Math.random() * 100}%`,
+  top: `${Math.random() * 100}%`,
+  size: Math.random() * 1.6 + 0.6,
+  delay: Math.random() * 6,
+  duration: Math.random() * 3 + 2.5,
+}));
+
+function AuroraBackdrop() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{ position: "fixed", inset: 0, zIndex: -1, overflow: "hidden", background: C.bg, pointerEvents: "none" }}
+    >
+      <div
+        className="aurora-field"
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: 0.6,
+          backgroundImage:
+            "radial-gradient(circle at 30% 20%, rgba(139,92,246,.22) 0%, transparent 60%), radial-gradient(circle at 75% 70%, rgba(232,121,249,.16) 0%, transparent 60%)",
+          animation: "auroraFieldPulse 12s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="aurora-blob"
+        style={{
+          position: "absolute", width: 460, height: 460, left: "-10%", top: "-12%", borderRadius: "50%",
+          filter: "blur(90px)", background: C.aubergine, opacity: 0.35,
+          animation: "auroraDrift1 26s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="aurora-blob"
+        style={{
+          position: "absolute", width: 380, height: 380, right: "-8%", top: "6%", borderRadius: "50%",
+          filter: "blur(90px)", background: C.blush, opacity: 0.28,
+          animation: "auroraDrift2 30s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="aurora-blob"
+        style={{
+          position: "absolute", width: 340, height: 340, left: "28%", bottom: "-16%", borderRadius: "50%",
+          filter: "blur(90px)", background: "#6366F1", opacity: 0.3,
+          animation: "auroraPulse 18s ease-in-out infinite",
+        }}
+      />
+      {AURORA_STARS.map((s, i) => (
+        <div
+          key={i}
+          className="aurora-star"
+          style={{
+            position: "absolute", left: s.left, top: s.top, width: s.size, height: s.size,
+            borderRadius: "50%", background: "#fff",
+            animation: `auroraTwinkle ${s.duration}s ease-in-out ${s.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 const C = {
-  bg: "#F5F2EA",
-  ink: "#22302B",
-  aubergine: "#1F4A45",
-  sage: "#7FA396",
-  blush: "#E8C5C0",
-  gold: "#C08A4E",
-  card: "#FFFFFF",
-  line: "#E1E0D5",
-  muted: "#758079",
-  danger: "#C85A54",
-  success: "#4E8A5E",
+  bg: "#0B0A14",
+  ink: "#F1EEFB",
+  aubergine: "#8B5CF6",
+  sage: "#A78BFA",
+  blush: "#E879F9",
+  gold: "#E0A860",
+  card: "#161325",
+  line: "rgba(255,255,255,.10)",
+  muted: "#ADA6C4",
+  danger: "#F87171",
+  success: "#4ADE80",
 };
 
 export const brl = (n) =>
@@ -1030,16 +1094,16 @@ export default function App() {
         }
         input:focus, select:focus { border-color: ${C.gold} !important; box-shadow: 0 0 0 4px rgba(192,138,78,.14); }
 
-        .card { box-shadow: 0 1px 2px rgba(34,48,43,.05), 0 12px 28px -14px rgba(34,48,43,.16); }
+        .card { box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 12px 28px -14px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04); }
 
-        .lift:hover { transform: translateY(-3px); box-shadow: 0 18px 34px -16px rgba(34,48,43,.22); border-color: ${C.sage} !important; }
+        .lift:hover { transform: translateY(-3px); box-shadow: 0 18px 34px -16px rgba(0,0,0,.5), 0 0 24px -4px rgba(139,92,246,.35); border-color: ${C.sage} !important; }
         .lift:active { transform: translateY(-1px); }
 
         .chip { position: relative; overflow: hidden; }
-        .chip:hover:not(:disabled) { border-color: ${C.aubergine}; filter: brightness(0.97); box-shadow: 0 3px 10px rgba(31,74,69,.14); }
+        .chip:hover:not(:disabled) { border-color: ${C.aubergine}; filter: brightness(0.97); box-shadow: 0 3px 10px rgba(139,92,246,.14); }
         .chip:active:not(:disabled) { transform: scale(0.96); filter: brightness(0.94); }
 
-        .icon-btn:hover:not(:disabled) { background: #E4EEEA !important; color: ${C.aubergine} !important; }
+        .icon-btn:hover:not(:disabled) { background: rgba(139,92,246,.16) !important; color: ${C.ink} !important; }
         .icon-btn:active:not(:disabled) { transform: scale(0.90); }
 
         .icon-btn-dark:hover:not(:disabled) { filter: brightness(1.22) saturate(1.1); transform: translateY(-1px); }
@@ -1048,18 +1112,18 @@ export default function App() {
         .btn-primary {
           background: linear-gradient(135deg, #D6A874 0%, ${C.gold} 55%, #A97840 100%) !important;
           color: #fff !important;
-          box-shadow: 0 3px 10px rgba(176,122,58,.32), inset 0 1px 0 rgba(255,255,255,.25);
+          box-shadow: 0 3px 10px rgba(224,168,96,.32), inset 0 1px 0 rgba(255,255,255,.25);
         }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 28px -6px rgba(176,122,58,.45), inset 0 1px 0 rgba(255,255,255,.3); filter: brightness(1.08) saturate(1.05); }
-        .btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 3px 10px rgba(176,122,58,.32); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 28px -6px rgba(224,168,96,.45), inset 0 1px 0 rgba(255,255,255,.3); filter: brightness(1.08) saturate(1.05); }
+        .btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 3px 10px rgba(224,168,96,.32); }
         .btn-primary:disabled { background: ${C.line} !important; color: ${C.muted} !important; box-shadow: none; }
 
-        .btn-dark { background: ${C.aubergine} !important; color: #fff !important; box-shadow: 0 3px 10px rgba(31,74,69,.28); }
-        .btn-dark:hover:not(:disabled) { filter: brightness(1.18); transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(31,74,69,.4); }
+        .btn-dark { background: ${C.aubergine} !important; color: #fff !important; box-shadow: 0 3px 10px rgba(139,92,246,.28); }
+        .btn-dark:hover:not(:disabled) { filter: brightness(1.18); transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(139,92,246,.4); }
         .btn-dark:active:not(:disabled) { transform: translateY(0) scale(0.98); }
 
         .btn-ghost { background: ${C.card}; border: 1px solid ${C.line}; color: ${C.muted}; }
-        .btn-ghost:hover:not(:disabled) { border-color: ${C.aubergine}; color: ${C.aubergine}; background: #EEF4F1; box-shadow: 0 3px 10px rgba(31,74,69,.10); }
+        .btn-ghost:hover:not(:disabled) { border-color: ${C.aubergine}; color: ${C.ink}; background: rgba(139,92,246,.12); box-shadow: 0 3px 10px rgba(139,92,246,.18); }
         .btn-ghost:active:not(:disabled) { transform: scale(0.97); }
 
         a, .link-hover { transition: color .16s ease; }
@@ -1093,8 +1157,16 @@ export default function App() {
           0%, 100% { opacity: .28; transform: scale(1); }
           50% { opacity: .48; transform: scale(1.12); }
         }
+        @keyframes auroraFieldPulse {
+          0%, 100% { opacity: .5; }
+          50% { opacity: .75; }
+        }
+        @keyframes auroraTwinkle {
+          0%, 100% { opacity: 0; }
+          50% { opacity: .9; }
+        }
         @media (prefers-reduced-motion: reduce) {
-          .aurora-blob { animation: none !important; }
+          .aurora-blob, .aurora-field, .aurora-star { animation: none !important; opacity: .4 !important; }
         }
 
         .two-col { grid-template-columns: 1fr; }
@@ -1114,7 +1186,8 @@ export default function App() {
           .sidebar-card { position: sticky; top: 90px; }
         }
       `}</style>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: `1px solid ${C.line}`, background: "rgba(247, 243, 238, 0.94)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 40 }}>
+      <AuroraBackdrop />
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: `1px solid ${C.line}`, background: "rgba(11,10,20,0.72)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 40 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: C.aubergine, display: "grid", placeItems: "center" }}>
             <Flower2 size={18} color={C.gold} />
@@ -1144,7 +1217,7 @@ export default function App() {
                 fontWeight: 600,
                 background: mode === m ? C.aubergine : "transparent",
                 color: mode === m ? "#fff" : C.muted,
-                boxShadow: mode === m ? "0 3px 10px rgba(31,74,69,.28)" : "none",
+                boxShadow: mode === m ? "0 3px 10px rgba(139,92,246,.28)" : "none",
                 border: "1px solid transparent",
               }}
             >
@@ -1502,7 +1575,7 @@ function GestaoView({
                     background: isSelected ? C.aubergine : C.card,
                     color: isSelected ? "#fff" : C.ink,
                     border: `1.5px solid ${isSelected ? C.aubergine : C.line}`,
-                    boxShadow: isSelected ? "0 4px 14px rgba(31,74,69,.22)" : "none",
+                    boxShadow: isSelected ? "0 4px 14px rgba(139,92,246,.22)" : "none",
                   }}
                 >
                   <div style={{ fontSize: 12, fontWeight: 500, opacity: isSelected ? 0.9 : 0.7 }}>
@@ -1579,7 +1652,7 @@ function GestaoView({
                         gap: 14,
                         padding: "14px 18px",
                         borderRadius: 14,
-                        background: a.status === "cancelado" ? "#FAFAFA" : "#fff",
+                        background: a.status === "cancelado" ? C.bg : C.card,
                         border: `1px solid ${C.line}`,
                         borderLeft: `5px solid ${pro?.corIdentificacao || C.aubergine}`,
                         opacity: a.status === "cancelado" ? 0.6 : 1,
@@ -1656,7 +1729,7 @@ function GestaoView({
                               width: 32,
                               height: 32,
                               borderRadius: 8,
-                              background: "#EEF1E9",
+                              background: "rgba(127,163,150,.16)",
                               color: C.sage,
                               display: "grid",
                               placeItems: "center",
@@ -1676,7 +1749,7 @@ function GestaoView({
                               borderRadius: 6,
                               fontSize: 11,
                               fontWeight: 600,
-                              background: "#F7F3EE",
+                              background: "rgba(255,255,255,.07)",
                               border: `1px solid ${C.line}`,
                               color: C.aubergine,
                             }}
@@ -1722,7 +1795,7 @@ function GestaoView({
               </div>
               <span
                 style={{
-                  background: dre.resultadoLiquido.isPositivo ? "#EEF1E9" : "#FBEEEC",
+                  background: dre.resultadoLiquido.isPositivo ? "rgba(127,163,150,.16)" : "rgba(248,113,113,.14)",
                   color: dre.resultadoLiquido.isPositivo ? C.success : C.danger,
                   padding: "6px 12px",
                   borderRadius: 20,
@@ -1781,7 +1854,7 @@ function GestaoView({
               {/* 3. MARGEM DE CONTRIBUIÇÃO */}
               <div
                 style={{
-                  background: "#FBF8F3",
+                  background: "rgba(255,255,255,.06)",
                   padding: "12px 14px",
                   borderRadius: 10,
                   border: `1px solid ${C.line}`,
@@ -1832,7 +1905,7 @@ function GestaoView({
                 style={{
                   background: dre.resultadoLiquido.isPositivo
                     ? "linear-gradient(135deg, #EEF1E9 0%, #E3EAD9 100%)"
-                    : "#FBEEEC",
+                    : "rgba(248,113,113,.14)",
                   padding: "16px 18px",
                   borderRadius: 14,
                   border: `1.5px solid ${dre.resultadoLiquido.isPositivo ? C.sage : C.danger}`,
@@ -1925,7 +1998,7 @@ function GestaoView({
                     gap: 4,
                     padding: "4px 8px",
                     borderRadius: 6,
-                    background: "#F7F3EE",
+                    background: "rgba(255,255,255,.07)",
                     fontSize: 12,
                     fontWeight: 600,
                   }}
@@ -1945,7 +2018,7 @@ function GestaoView({
                       fontSize: 13,
                       padding: "8px 10px",
                       borderRadius: 8,
-                      background: "#FDFBF7",
+                      background: "rgba(255,255,255,.05)",
                       border: `1px solid ${C.line}`,
                     }}
                   >
@@ -2046,7 +2119,7 @@ function GestaoView({
                     </div>
                     <span
                       style={{
-                        background: pac.status === "ativo" ? "#EEF1E9" : "#F0EDE8",
+                        background: pac.status === "ativo" ? "rgba(127,163,150,.16)" : "rgba(255,255,255,.07)",
                         color: pac.status === "ativo" ? C.sage : C.muted,
                         fontSize: 11,
                         fontWeight: 700,
@@ -2079,7 +2152,7 @@ function GestaoView({
                         width: "100%",
                         height: 8,
                         borderRadius: 6,
-                        background: "#EFE8DF",
+                        background: "rgba(255,255,255,.06)",
                         overflow: "hidden",
                       }}
                     >
@@ -2097,7 +2170,7 @@ function GestaoView({
                   {/* Detalhes Financeiros */}
                   <div
                     style={{
-                      background: "#FBF8F3",
+                      background: "rgba(255,255,255,.06)",
                       borderRadius: 12,
                       padding: "10px 14px",
                       display: "grid",
@@ -2226,7 +2299,7 @@ function GestaoView({
                             alignItems: "center",
                             padding: "8px 12px",
                             borderRadius: 8,
-                            background: "#FBF8F3",
+                            background: "rgba(255,255,255,.06)",
                             fontSize: 13,
                             border: `1px solid ${C.line}`,
                           }}
@@ -2257,7 +2330,7 @@ function GestaoView({
                             ) : (
                               <span
                                 style={{
-                                  background: "#EEF1E9",
+                                  background: "rgba(127,163,150,.16)",
                                   color: C.sage,
                                   padding: "2px 8px",
                                   borderRadius: 4,
@@ -2335,7 +2408,7 @@ function GestaoView({
                         textDecoration: "none",
                         fontSize: 12,
                         fontWeight: 600,
-                        background: "#EEF1E9",
+                        background: "rgba(127,163,150,.16)",
                         padding: "4px 8px",
                         borderRadius: 8,
                       }}
@@ -2356,7 +2429,7 @@ function GestaoView({
                             key={p.id}
                             style={{
                               fontSize: 11,
-                              background: "#FBF8F3",
+                              background: "rgba(255,255,255,.06)",
                               padding: "4px 8px",
                               borderRadius: 6,
                               border: `1px solid ${C.line}`,
@@ -2594,7 +2667,7 @@ function ClienteView({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    boxShadow: isSelected ? "0 10px 26px -8px rgba(31,74,69,.35)" : undefined,
+                    boxShadow: isSelected ? "0 10px 26px -8px rgba(139,92,246,.35)" : undefined,
                   }}
                 >
                   <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
@@ -2705,7 +2778,7 @@ function ClienteView({
                         padding: "8px 4px",
                         borderRadius: 10,
                         textAlign: "center",
-                        background: selDate === d.key ? C.aubergine : "#F7F3EE",
+                        background: selDate === d.key ? C.aubergine : "rgba(255,255,255,.07)",
                         color: selDate === d.key ? "#fff" : C.ink,
                         border: `1px solid ${selDate === d.key ? C.aubergine : C.line}`,
                       }}
@@ -2728,7 +2801,7 @@ function ClienteView({
                         borderRadius: 10,
                         fontSize: 13,
                         fontWeight: 600,
-                        background: selSlot === t ? C.aubergine : "#F7F3EE",
+                        background: selSlot === t ? C.aubergine : "rgba(255,255,255,.07)",
                         color: selSlot === t ? "#fff" : C.ink,
                         border: `1px solid ${selSlot === t ? C.aubergine : C.line}`,
                       }}
@@ -2764,7 +2837,7 @@ function ClienteView({
                         borderRadius: 10,
                         fontSize: 13,
                         fontWeight: 600,
-                        background: payMethod === m ? C.aubergine : "#F7F3EE",
+                        background: payMethod === m ? C.aubergine : "rgba(255,255,255,.07)",
                         color: payMethod === m ? "#fff" : C.ink,
                         border: `1px solid ${payMethod === m ? C.aubergine : C.line}`,
                       }}
@@ -2840,7 +2913,7 @@ function ClienteView({
                       color: "#fff",
                       display: "grid",
                       placeItems: "center",
-                      boxShadow: "0 3px 8px rgba(31,74,69,.28)",
+                      boxShadow: "0 3px 8px rgba(139,92,246,.28)",
                     }}
                   >
                     <Plus size={18} />
@@ -2879,7 +2952,7 @@ function ClienteView({
                           width: 24,
                           height: 24,
                           borderRadius: 7,
-                          background: "#F7F3EE",
+                          background: "rgba(255,255,255,.07)",
                           display: "grid",
                           placeItems: "center",
                         }}
@@ -2896,7 +2969,7 @@ function ClienteView({
                           width: 24,
                           height: 24,
                           borderRadius: 7,
-                          background: "#F7F3EE",
+                          background: "rgba(255,255,255,.07)",
                           display: "grid",
                           placeItems: "center",
                         }}
@@ -3074,7 +3147,7 @@ function NovoAgendamentoModal({
     border: `1px solid ${C.line}`,
     fontSize: 14,
     outline: "none",
-    background: "#fff",
+    background: C.card,
     color: C.ink,
   };
 
@@ -3095,7 +3168,7 @@ function NovoAgendamentoModal({
         onClick={(e) => e.stopPropagation()}
         className="card"
         style={{
-          background: "#fff",
+          background: C.card,
           borderRadius: 22,
           padding: 26,
           maxWidth: 440,
@@ -3141,7 +3214,7 @@ function NovoAgendamentoModal({
                 fontSize: 12,
                 fontWeight: 600,
                 borderRadius: 8,
-                background: clienteTipo === "existente" ? C.aubergine : "#F7F3EE",
+                background: clienteTipo === "existente" ? C.aubergine : "rgba(255,255,255,.07)",
                 color: clienteTipo === "existente" ? "#fff" : C.ink,
               }}
             >
@@ -3157,7 +3230,7 @@ function NovoAgendamentoModal({
                 fontSize: 12,
                 fontWeight: 600,
                 borderRadius: 8,
-                background: clienteTipo === "novo" ? C.aubergine : "#F7F3EE",
+                background: clienteTipo === "novo" ? C.aubergine : "rgba(255,255,255,.07)",
                 color: clienteTipo === "novo" ? "#fff" : C.ink,
               }}
             >
@@ -3262,7 +3335,7 @@ function NovoAgendamentoModal({
           </div>
 
           {tipoPagamento === "pacote_sessao" && (
-            <div style={{ display: "grid", gap: 6, background: "#FBF8F3", padding: 10, borderRadius: 10 }}>
+            <div style={{ display: "grid", gap: 6, background: "rgba(255,255,255,.06)", padding: 10, borderRadius: 10 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: C.gold }}>
                 Selecione o Pacote da Cliente:
               </label>
@@ -3344,7 +3417,7 @@ function NovaDespesaModal({ onClose, onSave }) {
     border: `1px solid ${C.line}`,
     fontSize: 14,
     outline: "none",
-    background: "#fff",
+    background: C.card,
   };
 
   return (
@@ -3364,7 +3437,7 @@ function NovaDespesaModal({ onClose, onSave }) {
         onClick={(e) => e.stopPropagation()}
         className="card"
         style={{
-          background: "#fff",
+          background: C.card,
           borderRadius: 22,
           padding: 26,
           maxWidth: 380,
@@ -3494,7 +3567,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave })
     border: `1px solid ${C.line}`,
     fontSize: 14,
     outline: "none",
-    background: "#fff",
+    background: C.card,
   };
 
   return (
@@ -3514,7 +3587,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave })
         onClick={(e) => e.stopPropagation()}
         className="card"
         style={{
-          background: "#fff",
+          background: C.card,
           borderRadius: 22,
           padding: 26,
           maxWidth: 400,
@@ -3571,7 +3644,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, onClose, onSave })
           {modSel && (
             <div
               style={{
-                background: "#FBF8F3",
+                background: "rgba(255,255,255,.06)",
                 padding: 12,
                 borderRadius: 10,
                 fontSize: 13,
@@ -3625,7 +3698,7 @@ function ConfirmModal({ data, onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="card"
         style={{
-          background: "#fff",
+          background: C.card,
           borderRadius: 22,
           padding: 32,
           maxWidth: 380,
@@ -3656,7 +3729,7 @@ function ConfirmModal({ data, onClose }) {
             width: 60,
             height: 60,
             borderRadius: "50%",
-            background: "#EEF1E9",
+            background: "rgba(127,163,150,.16)",
             display: "grid",
             placeItems: "center",
             margin: "0 auto 18px",
@@ -3715,7 +3788,7 @@ function TabBtn({ active, onClick, icon, label, count }) {
         background: active ? C.aubergine : C.card,
         color: active ? "#fff" : C.ink,
         border: `1px solid ${active ? C.aubergine : C.line}`,
-        boxShadow: active ? "0 4px 12px rgba(31,74,69,.25)" : undefined,
+        boxShadow: active ? "0 4px 12px rgba(139,92,246,.25)" : undefined,
       }}
     >
       {icon}
@@ -3762,7 +3835,7 @@ function NavTabButton({ active, onClick, icon, label, count }) {
       {count !== undefined && (
         <span
           style={{
-            background: active ? "rgba(255,255,255,.25)" : "#EFE8DF",
+            background: active ? "rgba(255,255,255,.25)" : "rgba(255,255,255,.06)",
             color: active ? "#fff" : C.ink,
             borderRadius: 12,
             padding: "1px 6px",
@@ -3813,13 +3886,13 @@ function Kpi({ icon, label, value, sub, accent }) {
 
 function StatusBadge({ status }) {
   const map = {
-    confirmado: ["#EEF1E9", C.sage, "Confirmado"],
-    em_atendimento: ["#FBF1E4", C.gold, "Em Atendimento"],
-    concluido: ["#E8EFE9", C.success, "Concluído"],
-    pendente: ["#FDF3E7", "#D9822B", "Pendente"],
-    cancelado: ["#FBEEEC", C.danger, "Cancelado"],
+    confirmado: ["rgba(127,163,150,.16)", C.sage, "Confirmado"],
+    em_atendimento: ["rgba(224,168,96,.18)", C.gold, "Em Atendimento"],
+    concluido: ["rgba(74,222,128,.16)", C.success, "Concluído"],
+    pendente: ["rgba(224,168,96,.18)", C.gold, "Pendente"],
+    cancelado: ["rgba(248,113,113,.16)", C.danger, "Cancelado"],
   };
-  const [bg, col, txt] = map[status] || ["#F0EDE8", C.muted, status];
+  const [bg, col, txt] = map[status] || ["rgba(255,255,255,.08)", C.muted, status];
   return (
     <span
       style={{
@@ -3838,13 +3911,13 @@ function StatusBadge({ status }) {
 
 function TipoPagamentoBadge({ tipo, sessaoNum }) {
   const map = {
-    pago_pix: ["#EEF1E9", C.sage, "PIX"],
-    pago_cartao: ["#F1EAF4", C.aubergine, "Cartão"],
-    pago_dinheiro: ["#EEF6F0", "#2E7D32", "Dinheiro"],
-    pacote_sessao: ["#FBF1E4", C.gold, sessaoNum ? `Pacote (${sessaoNum}ª sessão)` : "Pacote"],
-    pendente_pos_atendimento: ["#FBEEEC", C.danger, "Pendente Pós"],
+    pago_pix: ["rgba(127,163,150,.16)", C.sage, "PIX"],
+    pago_cartao: ["rgba(139,92,246,.18)", C.aubergine, "Cartão"],
+    pago_dinheiro: ["rgba(74,222,128,.16)", C.success, "Dinheiro"],
+    pacote_sessao: ["rgba(224,168,96,.18)", C.gold, sessaoNum ? `Pacote (${sessaoNum}ª sessão)` : "Pacote"],
+    pendente_pos_atendimento: ["rgba(248,113,113,.16)", C.danger, "Pendente Pós"],
   };
-  const [bg, col, txt] = map[tipo] || ["#F0EDE8", C.muted, tipo];
+  const [bg, col, txt] = map[tipo] || ["rgba(255,255,255,.08)", C.muted, tipo];
   return (
     <span
       style={{
