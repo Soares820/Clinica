@@ -1060,18 +1060,90 @@ export default function App() {
 
   if (carregando) {
     return (
-      <div style={{ background: C.bg, minHeight: "100vh", display: "grid", placeItems: "center", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
-        <p style={{ color: C.muted, fontSize: 14 }}>Carregando Studio Aura…</p>
+      <div style={{ background: C.bg, minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
+        <style>{`
+          @keyframes loaderPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 26px -4px ${C.aubergine}; } 50% { transform: scale(1.07); box-shadow: 0 0 42px 0px ${C.aubergine}; } }
+          @keyframes loaderSpin { to { transform: rotate(360deg); } }
+          @keyframes loaderDot { 0%, 80%, 100% { transform: scale(0.55); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
+          @media (prefers-reduced-motion: reduce) {
+            .loader-spin, .loader-pulse, .loader-dot { animation: none !important; }
+          }
+        `}</style>
+        <AuroraBackdrop />
+        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
+          <div style={{ position: "relative", width: 76, height: 76, display: "grid", placeItems: "center" }}>
+            <div
+              className="loader-spin"
+              style={{
+                position: "absolute", inset: 0, borderRadius: "50%",
+                border: `2.5px solid rgba(255,255,255,.12)`, borderTopColor: C.aubergine,
+                animation: "loaderSpin 0.9s linear infinite",
+              }}
+            />
+            <div
+              className="loader-pulse"
+              style={{
+                width: 54, height: 54, borderRadius: 16, background: C.aubergine,
+                display: "grid", placeItems: "center", animation: "loaderPulse 2.2s ease-in-out infinite",
+              }}
+            >
+              <Flower2 size={24} color={C.gold} />
+            </div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div className="display" style={{ fontSize: 21, fontWeight: 600, marginBottom: 8, letterSpacing: "-0.01em" }}>
+              Studio Aura
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, justifyContent: "center" }}>
+              <span style={{ color: C.muted, fontSize: 13 }}>Carregando seus dados</span>
+              <span style={{ display: "flex", gap: 3 }}>
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="loader-dot"
+                    style={{
+                      width: 4, height: 4, borderRadius: "50%", background: C.gold,
+                      animation: `loaderDot 1.4s ease-in-out ${i * 0.16}s infinite`,
+                    }}
+                  />
+                ))}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (erroCarregamento) {
     return (
-      <div style={{ background: C.bg, minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
-        <p style={{ color: C.danger, fontSize: 14, textAlign: "center", maxWidth: 420 }}>
-          Não foi possível carregar os dados do Studio Aura: {erroCarregamento}
-        </p>
+      <div style={{ background: C.bg, minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", padding: 24, color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
+        <AuroraBackdrop />
+        <div
+          className="card"
+          style={{
+            position: "relative", zIndex: 1, background: C.card, border: `1px solid ${C.line}`,
+            borderRadius: 20, padding: 32, maxWidth: 420, width: "100%", textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 52, height: 52, borderRadius: "50%", background: "rgba(248,113,113,.16)",
+              display: "grid", placeItems: "center", margin: "0 auto 16px",
+            }}
+          >
+            <AlertCircle size={24} color={C.danger} />
+          </div>
+          <h2 className="display" style={{ fontSize: 19, margin: "0 0 8px" }}>Não foi possível carregar</h2>
+          <p style={{ color: C.muted, fontSize: 14, margin: "0 0 22px", lineHeight: 1.5 }}>{erroCarregamento}</p>
+          <button
+            className="btn-primary"
+            onClick={() => window.location.reload()}
+            style={{ padding: "11px 22px", borderRadius: 10, fontWeight: 600, fontSize: 14 }}
+          >
+            Tentar novamente
+          </button>
+        </div>
       </div>
     );
   }
