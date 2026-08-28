@@ -2573,7 +2573,15 @@ function GestaoView({
               let modelo = payload.modeloExistente;
 
               if (payload.novoModelo) {
-                modelo = await db.criarModeloPacote(payload.novoModelo);
+                let servicoIdParaModelo = payload.novoModelo.servicoId;
+
+                if (payload.novoServico) {
+                  const novoServico = await db.criarServico(payload.novoServico);
+                  setServicos(await db.listarServicos());
+                  servicoIdParaModelo = novoServico.id;
+                }
+
+                modelo = await db.criarModeloPacote({ ...payload.novoModelo, servicoId: servicoIdParaModelo });
                 setModelosPacote(await db.listarModelosPacote());
               }
 
@@ -3724,7 +3732,13 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
   const [modeloId, setModeloId] = useState(modelosPacote[0]?.id || "");
 
   const [novoNome, setNovoNome] = useState("");
+  const [servicoTipo, setServicoTipo] = useState(servicos.length ? "existente" : "novo"); // 'existente' | 'novo'
   const [novoServicoId, setNovoServicoId] = useState(servicos[0]?.id || "");
+  const [novoServicoNome, setNovoServicoNome] = useState("");
+  const [novoServicoCategoria, setNovoServicoCategoria] = useState("massoterapia");
+  const [novoServicoDuracao, setNovoServicoDuracao] = useState(60);
+  const [novoServicoPreco, setNovoServicoPreco] = useState("");
+  const [novoServicoProId, setNovoServicoProId] = useState(profissionais[0]?.id || "");
   const [novoTotalSessoes, setNovoTotalSessoes] = useState(4);
   const [novoPrecoTotal, setNovoPrecoTotal] = useState("");
   const [novoValidadeDias, setNovoValidadeDias] = useState(90);
@@ -3754,8 +3768,13 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
     )
   );
 
+  const novoServicoValido =
+    servicoTipo === "existente"
+      ? !!novoServicoId
+      : novoServicoNome.trim() && Number(novoServicoDuracao) > 0 && Number(novoServicoPreco) >= 0;
+
   const novoModeloValido =
-    novoNome.trim() && novoServicoId && Number(novoTotalSessoes) > 0 && Number(novoPrecoTotal) > 0;
+    novoNome.trim() && novoServicoValido && Number(novoTotalSessoes) > 0 && Number(novoPrecoTotal) > 0;
 
   const podeSubmeter =
     !!cliSel &&
@@ -3766,13 +3785,15 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
     ? "Selecione a cliente."
     : modeloTipo === "existente" && !modSel
       ? "Selecione um modelo de pacote."
-      : modeloTipo === "novo" && !novoModeloValido
-        ? "Preencha nome, serviço, sessões e preço do novo modelo."
-        : agendarAgora && !profissionalId
-          ? "Selecione o profissional para agendar a sessão."
-          : agendarAgora && conflict
-            ? "Escolha outro horário — o profissional já tem atendimento nesse dia e horário."
-            : "";
+      : modeloTipo === "novo" && servicoTipo === "novo" && !novoServicoValido
+        ? "Preencha nome, duração e preço do novo serviço."
+        : modeloTipo === "novo" && !novoModeloValido
+          ? "Preencha nome, sessões e preço do novo modelo de pacote."
+          : agendarAgora && !profissionalId
+            ? "Selecione o profissional para agendar a sessão."
+            : agendarAgora && conflict
+              ? "Escolha outro horário — o profissional já tem atendimento nesse dia e horário."
+              : "";
 
   const submit = (e) => {
     e.preventDefault();
@@ -3781,11 +3802,21 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
     onSave({
       cliente: cliSel,
       modeloExistente: modeloTipo === "existente" ? modSel : null,
+      novoServico:
+        modeloTipo === "novo" && servicoTipo === "novo"
+          ? {
+              nome: novoServicoNome.trim(),
+              categoria: novoServicoCategoria,
+              duracao: Number(novoServicoDuracao),
+              precoBase: Number(novoServicoPreco),
+              proPadraoId: novoServicoProId || null,
+            }
+          : null,
       novoModelo:
         modeloTipo === "novo"
           ? {
               nome: novoNome.trim(),
-              servicoId: novoServicoId,
+              servicoId: servicoTipo === "existente" ? novoServicoId : null,
               totalSessoes: Number(novoTotalSessoes),
               precoTotal: Number(novoPrecoTotal),
               validadeDias: Number(novoValidadeDias),
@@ -3949,14 +3980,135 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
               />
               <div style={{ display: "grid", gap: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Serviço vinculado:</label>
-                <select value={novoServicoId} onChange={(e) => setNovoServicoId(e.target.value)} style={inputStyle}>
-                  {servicos.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nome}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => setServicoTipo("existente")}
+                    style={{
+                      flex: 1,
+                      padding: "7px 0",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      borderRadius: 8,
+                      background: servicoTipo === "existente" ? C.sage : "rgba(255,255,255,.07)",
+                      color: servicoTipo === "existente" ? "#0B0A14" : C.ink,
+                    }}
+                  >
+                    Serviço Existente
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => setServicoTipo("novo")}
+                    style={{
+                      flex: 1,
+                      padding: "7px 0",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      borderRadius: 8,
+                      background: servicoTipo === "novo" ? C.sage : "rgba(255,255,255,.07)",
+                      color: servicoTipo === "novo" ? "#0B0A14" : C.ink,
+                    }}
+                  >
+                    Cadastrar Novo Serviço
+                  </button>
+                </div>
               </div>
+
+              {servicoTipo === "existente" ? (
+                servicos.length ? (
+                  <select value={novoServicoId} onChange={(e) => setNovoServicoId(e.target.value)} style={inputStyle}>
+                    {servicos.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nome}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>
+                    Nenhum serviço cadastrado ainda — use "Cadastrar Novo Serviço" acima.
+                  </p>
+                )
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                    padding: 12,
+                    borderRadius: 10,
+                    border: `1px solid ${C.line}`,
+                    background: "rgba(255,255,255,.04)",
+                  }}
+                >
+                  <input
+                    value={novoServicoNome}
+                    onChange={(e) => setNovoServicoNome(e.target.value)}
+                    placeholder="Nome do serviço (ex: Drenagem Linfática)"
+                    style={inputStyle}
+                    required
+                  />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <select
+                      value={novoServicoCategoria}
+                      onChange={(e) => setNovoServicoCategoria(e.target.value)}
+                      style={inputStyle}
+                    >
+                      <option value="massoterapia">Massoterapia</option>
+                      <option value="cilios_sobrancelhas">Cílios & Sobrancelhas</option>
+                      <option value="estetica_facial">Estética Facial</option>
+                      <option value="corporal">Corporal</option>
+                    </select>
+                    <select
+                      value={novoServicoProId}
+                      onChange={(e) => setNovoServicoProId(e.target.value)}
+                      style={inputStyle}
+                    >
+                      <option value="">Sem profissional padrão</option>
+                      {profissionais.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Duração (min):</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={novoServicoDuracao}
+                        onChange={(e) => setNovoServicoDuracao(e.target.value)}
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Preço avulso:</label>
+                      <div style={{ position: "relative" }}>
+                        <span
+                          style={{
+                            position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+                            color: C.muted, fontSize: 13, pointerEvents: "none",
+                          }}
+                        >
+                          R$
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={novoServicoPreco}
+                          onChange={(e) => setNovoServicoPreco(e.target.value)}
+                          placeholder="0,00"
+                          style={{ ...inputStyle, paddingLeft: 30 }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Sessões:</label>

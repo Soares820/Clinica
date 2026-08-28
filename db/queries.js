@@ -342,6 +342,24 @@ export async function criarPacoteCliente(novoPac) {
   return row;
 }
 
+export async function criarServico(servico) {
+  const row = unwrap(
+    await supabase
+      .from("servicos")
+      .insert({
+        nome: servico.nome,
+        duracao_minutos: servico.duracao,
+        preco_base: servico.precoBase,
+        categoria: servico.categoria,
+        pro_padrao_id: servico.proPadraoId || null,
+        ativo: true,
+      })
+      .select()
+      .single()
+  );
+  return mapServico(row);
+}
+
 export async function criarModeloPacote(modelo) {
   const row = unwrap(
     await supabase
