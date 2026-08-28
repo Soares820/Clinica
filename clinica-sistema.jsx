@@ -3762,6 +3762,18 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
     (modeloTipo === "existente" ? !!modSel : novoModeloValido) &&
     (!agendarAgora || (!!profissionalId && !conflict));
 
+  const motivoBloqueio = !cliSel
+    ? "Selecione a cliente."
+    : modeloTipo === "existente" && !modSel
+      ? "Selecione um modelo de pacote."
+      : modeloTipo === "novo" && !novoModeloValido
+        ? "Preencha nome, serviço, sessões e preço do novo modelo."
+        : agendarAgora && !profissionalId
+          ? "Selecione o profissional para agendar a sessão."
+          : agendarAgora && conflict
+            ? "Escolha outro horário — o profissional já tem atendimento nesse dia e horário."
+            : "";
+
   const submit = (e) => {
     e.preventDefault();
     if (!podeSubmeter) return;
@@ -3841,21 +3853,37 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
           <X size={20} />
         </button>
 
-        <h3 className="display" style={{ fontSize: 20, margin: "0 0 16px" }}>
-          Vender Pacote Promocional
-        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <div
+            style={{
+              width: 38, height: 38, borderRadius: 10, background: C.gold + "22", color: C.gold,
+              display: "grid", placeItems: "center", flexShrink: 0,
+            }}
+          >
+            <Package size={18} />
+          </div>
+          <h3 className="display" style={{ fontSize: 20, margin: 0 }}>
+            Vender Pacote Promocional
+          </h3>
+        </div>
 
         <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "grid", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Cliente:</label>
-            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inputStyle}>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome} · {c.telefone}
-                </option>
-              ))}
-            </select>
-          </div>
+          {clientes.length ? (
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Cliente:</label>
+              <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inputStyle}>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome} · {c.telefone}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>
+              Nenhuma cliente cadastrada ainda — cadastre uma pelo "Novo Agendamento" primeiro.
+            </p>
+          )}
 
           {/* Tipo de modelo */}
           <div style={{ display: "flex", gap: 6 }}>
@@ -3941,16 +3969,26 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Preço total (R$):</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={novoPrecoTotal}
-                    onChange={(e) => setNovoPrecoTotal(e.target.value)}
-                    placeholder="0,00"
-                    style={inputStyle}
-                  />
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Preço total:</label>
+                  <div style={{ position: "relative" }}>
+                    <span
+                      style={{
+                        position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+                        color: C.muted, fontSize: 13, pointerEvents: "none",
+                      }}
+                    >
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={novoPrecoTotal}
+                      onChange={(e) => setNovoPrecoTotal(e.target.value)}
+                      placeholder="0,00"
+                      style={{ ...inputStyle, paddingLeft: 30 }}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Validade (dias):</label>
@@ -3969,18 +4007,25 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
           {resumo && (
             <div
               style={{
-                background: "rgba(255,255,255,.06)",
-                padding: 12,
-                borderRadius: 10,
+                background: "rgba(224,168,96,.08)",
+                padding: 14,
+                borderRadius: 12,
                 fontSize: 13,
                 border: `1px solid ${C.line}`,
               }}
             >
-              <div>
-                Valor unitário por sessão:{" "}
+              <div style={{ fontWeight: 700, marginBottom: 8, color: C.ink }}>
+                {modeloTipo === "existente" ? modSel?.nome : novoNome.trim() || "Novo pacote"}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ color: C.muted }}>Total do pacote ({resumo.totalSessoes}x)</span>
+                <strong>{brl(resumo.precoTotal)}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: C.muted }}>Valor por sessão</span>
                 <strong>{brl(resumo.precoTotal / resumo.totalSessoes)}</strong>
               </div>
-              <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>
+              <div style={{ color: C.muted, fontSize: 12, marginTop: 8 }}>
                 Validade: {resumo.validadeDias} dias a partir da data de compra
               </div>
             </div>
@@ -4048,6 +4093,10 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
                 </p>
               )}
             </div>
+          )}
+
+          {!podeSubmeter && motivoBloqueio && (
+            <p style={{ color: C.muted, fontSize: 12, margin: 0, textAlign: "center" }}>{motivoBloqueio}</p>
           )}
 
           <button
