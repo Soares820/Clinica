@@ -259,7 +259,11 @@ export async function criarAgendamentoGestao(novo) {
   // digitado na hora (não existe ainda no banco).
   if (!clienteId || String(clienteId).startsWith("cli-")) {
     const cliente = unwrap(
-      await supabase.from("clientes").insert({ nome: novo.clienteNome }).select().single()
+      await supabase
+        .from("clientes")
+        .insert({ nome: novo.clienteNome, telefone: novo.clienteTelefone || null })
+        .select()
+        .single()
     );
     clienteId = cliente.id;
   }

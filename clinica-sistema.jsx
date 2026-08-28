@@ -3180,6 +3180,7 @@ function NovoAgendamentoModal({
   const [clienteTipo, setClienteTipo] = useState("existente"); // 'existente' | 'novo'
   const [clienteId, setClienteId] = useState(clientes[0]?.id || "");
   const [novoClienteNome, setNovoClienteNome] = useState("");
+  const [novoClienteTelefone, setNovoClienteTelefone] = useState("");
 
   const [servicoId, setServicoId] = useState(servicos[0]?.id || "");
   const [profissionalId, setProfissionalId] = useState(profissionais[0]?.id || "");
@@ -3222,6 +3223,7 @@ function NovoAgendamentoModal({
         : novoClienteNome.trim();
 
     if (!clienteNomeFinal) return;
+    if (clienteTipo === "novo" && !novoClienteTelefone.trim()) return;
 
     let valorCobrado = servicoSel?.precoBase || 140;
     let sessaoNumero = null;
@@ -3244,6 +3246,7 @@ function NovoAgendamentoModal({
       horario: time,
       clienteId: clienteTipo === "existente" ? clienteId : `cli-${Date.now()}`,
       clienteNome: clienteNomeFinal,
+      clienteTelefone: clienteTipo === "novo" ? novoClienteTelefone.trim() : undefined,
       servicoId: servicoSel.id,
       servicoNome: servicoSel.nome,
       profissionalId: proSel.id,
@@ -3374,13 +3377,22 @@ function NovoAgendamentoModal({
               ))}
             </select>
           ) : (
-            <input
-              value={novoClienteNome}
-              onChange={(e) => setNovoClienteNome(e.target.value)}
-              placeholder="Nome completo da cliente"
-              style={inputStyle}
-              required
-            />
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 8 }}>
+              <input
+                value={novoClienteNome}
+                onChange={(e) => setNovoClienteNome(e.target.value)}
+                placeholder="Nome completo da cliente"
+                style={inputStyle}
+                required
+              />
+              <input
+                value={novoClienteTelefone}
+                onChange={(e) => setNovoClienteTelefone(e.target.value)}
+                placeholder="WhatsApp"
+                style={inputStyle}
+                required
+              />
+            </div>
           )}
 
           {/* Serviço e Profissional */}
@@ -3490,7 +3502,11 @@ function NovoAgendamentoModal({
           <button
             type="submit"
             className="btn-primary"
-            disabled={conflict || (tipoPagamento === "pacote_sessao" && !pacSel)}
+            disabled={
+              conflict ||
+              (tipoPagamento === "pacote_sessao" && !pacSel) ||
+              (clienteTipo === "novo" && !novoClienteTelefone.trim())
+            }
             style={{
               width: "100%",
               padding: 13,
@@ -3508,18 +3524,33 @@ function NovoAgendamentoModal({
   );
 }
 
+const CATEGORIAS_DESPESA = [
+  { value: "insumos_materiais", label: "Insumos & Materiais de Atendimento", icon: Package, color: "#A78BFA" },
+  { value: "aluguel_fixo", label: "Aluguel & Custos Fixos", icon: Receipt, color: "#E0A860" },
+  { value: "marketing", label: "Marketing & Anúncios", icon: ArrowUpRight, color: "#E879F9" },
+  { value: "comissao", label: "Repasse de Comissão", icon: Percent, color: "#6366F1" },
+  { value: "outros", label: "Outras Despesas Operacionais", icon: FileText, color: "#ADA6C4" },
+];
+
 function NovaDespesaModal({ onClose, onSave }) {
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState("insumos_materiais");
   const [valor, setValor] = useState("");
   const [data, setData] = useState(new Date().toISOString().split("T")[0]);
   const [comprovanteRef, setComprovanteRef] = useState("");
+  const [error, setError] = useState("");
+
+  const catSel = CATEGORIAS_DESPESA.find((c) => c.value === categoria);
+  const CatIcon = catSel?.icon || FileText;
 
   const submit = (e) => {
     e.preventDefault();
     const v = Number(String(valor).replace(",", "."));
-    if (!descricao.trim() || !v || v <= 0) return;
+    if (!descricao.trim()) return setError("Preencha a descrição da despesa.");
+    if (!v || v <= 0) return setError("Informe um valor válido, maior que zero.");
+    if (!data) return setError("Informe a data da despesa.");
 
+    setError("");
     onSave({
       id: `desp-${Date.now()}`,
       descricao: descricao.trim(),
@@ -3538,6 +3569,7 @@ function NovaDespesaModal({ onClose, onSave }) {
     fontSize: 14,
     outline: "none",
     background: C.card,
+    color: C.ink,
   };
 
   return (
@@ -3599,34 +3631,61 @@ function NovaDespesaModal({ onClose, onSave }) {
             autoFocus
           />
 
-          <select
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="insumos_materiais">Insumos & Materiais de Atendimento</option>
-            <option value="aluguel_fixo">Aluguel & Custos Fixos</option>
-            <option value="marketing">Marketing & Anúncios</option>
-            <option value="comissao">Repasse de Comissão</option>
-            <option value="outros">Outras Despesas Operacionais</option>
-          </select>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                flexShrink: 0,
+                borderRadius: 10,
+                background: catSel.color + "22",
+                color: catSel.color,
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <CatIcon size={18} />
+            </div>
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              style={inputStyle}
+            >
+              {CATEGORIAS_DESPESA.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <input
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            placeholder="Valor em R$"
-            inputMode="decimal"
-            style={inputStyle}
-            required
-          />
-
-          <input
-            type="date"
-            value={data}
-            onChange={(e) => setData(e.target.value)}
-            style={inputStyle}
-            required
-          />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ position: "relative" }}>
+              <span
+                style={{
+                  position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                  color: C.muted, fontSize: 14, pointerEvents: "none",
+                }}
+              >
+                R$
+              </span>
+              <input
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                placeholder="0,00"
+                inputMode="decimal"
+                style={{ ...inputStyle, paddingLeft: 34 }}
+                required
+              />
+            </div>
+            <input
+              type="date"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              style={inputStyle}
+              required
+            />
+          </div>
 
           <input
             value={comprovanteRef}
@@ -3634,6 +3693,10 @@ function NovaDespesaModal({ onClose, onSave }) {
             placeholder="Comprovante / NF (ex: NF-9921)"
             style={inputStyle}
           />
+
+          {error && (
+            <p style={{ color: C.danger, fontSize: 12, margin: 0 }}>{error}</p>
+          )}
 
           <button
             type="submit"
