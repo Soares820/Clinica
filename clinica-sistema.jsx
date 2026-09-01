@@ -168,6 +168,7 @@ function AuroraBackdrop() {
       aria-hidden="true"
       style={{ position: "fixed", inset: 0, zIndex: -1, overflow: "hidden", background: C.bg, pointerEvents: "none" }}
     >
+      {/* Luz ambiente vindo "de cima da água" */}
       <div
         className="aurora-field"
         style={{
@@ -175,34 +176,49 @@ function AuroraBackdrop() {
           inset: 0,
           opacity: 0.9,
           backgroundImage:
-            "radial-gradient(circle at 28% 24%, rgba(15,61,52,.55) 0%, transparent 55%), radial-gradient(circle at 78% 68%, rgba(232,121,249,.45) 0%, transparent 55%)",
-          animation: "auroraFieldPulse 10s ease-in-out infinite",
+            "radial-gradient(ellipse 90% 55% at 50% -8%, rgba(63,169,138,.35) 0%, transparent 60%), linear-gradient(180deg, rgba(15,61,52,.25) 0%, transparent 35%, rgba(3,10,9,.5) 100%)",
+          animation: "auroraFieldPulse 9s ease-in-out infinite",
+        }}
+      />
+
+      {/* Raio de luz diagonal, tipo sol penetrando a água */}
+      <div
+        className="ocean-ray"
+        style={{
+          position: "absolute", top: "-20%", left: "38%", width: 260, height: "150%",
+          background: `linear-gradient(180deg, ${C.gold}33 0%, transparent 70%)`,
+          transform: "rotate(12deg)", filter: "blur(30px)", transformOrigin: "top center",
+          animation: "oceanRaySway 14s ease-in-out infinite",
+        }}
+      />
+
+      {/* Correntezas — faixas largas de luz se movendo devagar, como água em profundidade */}
+      <div
+        className="aurora-blob"
+        style={{
+          position: "absolute", width: "115%", height: 340, left: "-10%", top: "-8%", borderRadius: "50%",
+          filter: "blur(70px)", background: C.aubergine, opacity: 0.7,
+          animation: "oceanCurrent1 24s ease-in-out infinite",
         }}
       />
       <div
         className="aurora-blob"
         style={{
-          position: "absolute", width: 680, height: 680, left: "-16%", top: "-18%", borderRadius: "50%",
-          filter: "blur(80px)", background: C.aubergine, opacity: 0.65,
-          animation: "auroraDrift1 22s ease-in-out infinite",
+          position: "absolute", width: "120%", height: 300, left: "-15%", top: "38%", borderRadius: "50%",
+          filter: "blur(70px)", background: "#1F6E5C", opacity: 0.5,
+          animation: "oceanCurrent2 30s ease-in-out infinite",
         }}
       />
       <div
         className="aurora-blob"
         style={{
-          position: "absolute", width: 560, height: 560, right: "-12%", top: "0%", borderRadius: "50%",
-          filter: "blur(80px)", background: C.blush, opacity: 0.55,
-          animation: "auroraDrift2 26s ease-in-out infinite",
+          position: "absolute", width: "110%", height: 320, left: "-8%", bottom: "-14%", borderRadius: "50%",
+          filter: "blur(70px)", background: C.sage, opacity: 0.4,
+          animation: "oceanCurrent1 26s ease-in-out infinite reverse",
         }}
       />
-      <div
-        className="aurora-blob"
-        style={{
-          position: "absolute", width: 520, height: 520, left: "22%", bottom: "-22%", borderRadius: "50%",
-          filter: "blur(80px)", background: "#1F6E5C", opacity: 0.55,
-          animation: "auroraPulse 16s ease-in-out infinite",
-        }}
-      />
+
+      {/* Bolhas / brilho na água subindo */}
       {AURORA_STARS.map((s, i) => (
         <div
           key={i}
@@ -210,7 +226,7 @@ function AuroraBackdrop() {
           style={{
             position: "absolute", left: s.left, top: s.top, width: s.size, height: s.size,
             borderRadius: "50%", background: "#fff",
-            animation: `auroraTwinkle ${s.duration}s ease-in-out ${s.delay}s infinite`,
+            animation: `oceanBubble ${s.duration + 4}s ease-in-out ${s.delay}s infinite`,
           }}
         />
       ))}
@@ -1230,28 +1246,32 @@ export default function App() {
           background: ${C.sage}; opacity: .32;
           animation: auroraPulse 15s ease-in-out infinite;
         }
-        @keyframes auroraDrift1 {
-          0%, 100% { transform: translate(0,0) scale(1); }
-          50% { transform: translate(40px,24px) scale(1.15); }
+        @keyframes oceanCurrent1 {
+          0% { transform: translate(-4%, 0) scaleX(1); }
+          50% { transform: translate(4%, 18px) scaleX(1.08); }
+          100% { transform: translate(-4%, 0) scaleX(1); }
         }
-        @keyframes auroraDrift2 {
-          0%, 100% { transform: translate(0,0) scale(1); }
-          50% { transform: translate(-32px,26px) scale(1.1); }
+        @keyframes oceanCurrent2 {
+          0% { transform: translate(3%, 0) scaleX(1.05); }
+          50% { transform: translate(-5%, -16px) scaleX(0.96); }
+          100% { transform: translate(3%, 0) scaleX(1.05); }
         }
-        @keyframes auroraPulse {
-          0%, 100% { opacity: .28; transform: scale(1); }
-          50% { opacity: .48; transform: scale(1.12); }
+        @keyframes oceanRaySway {
+          0%, 100% { transform: rotate(12deg) translateX(0); opacity: .7; }
+          50% { transform: rotate(6deg) translateX(30px); opacity: 1; }
         }
         @keyframes auroraFieldPulse {
           0%, 100% { opacity: .5; }
           50% { opacity: .75; }
         }
-        @keyframes auroraTwinkle {
-          0%, 100% { opacity: 0; }
-          50% { opacity: .9; }
+        @keyframes oceanBubble {
+          0% { transform: translateY(0); opacity: 0; }
+          15% { opacity: .9; }
+          85% { opacity: .5; }
+          100% { transform: translateY(-140px); opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .aurora-blob, .aurora-field, .aurora-star { animation: none !important; opacity: .4 !important; }
+          .aurora-blob, .aurora-field, .aurora-star, .ocean-ray { animation: none !important; opacity: .4 !important; }
         }
 
         .two-col { grid-template-columns: 1fr; }
