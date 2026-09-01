@@ -175,7 +175,7 @@ function AuroraBackdrop() {
           inset: 0,
           opacity: 0.9,
           backgroundImage:
-            "radial-gradient(circle at 28% 24%, rgba(139,92,246,.55) 0%, transparent 55%), radial-gradient(circle at 78% 68%, rgba(232,121,249,.45) 0%, transparent 55%)",
+            "radial-gradient(circle at 28% 24%, rgba(15,61,52,.55) 0%, transparent 55%), radial-gradient(circle at 78% 68%, rgba(232,121,249,.45) 0%, transparent 55%)",
           animation: "auroraFieldPulse 10s ease-in-out infinite",
         }}
       />
@@ -199,7 +199,7 @@ function AuroraBackdrop() {
         className="aurora-blob"
         style={{
           position: "absolute", width: 520, height: 520, left: "22%", bottom: "-22%", borderRadius: "50%",
-          filter: "blur(80px)", background: "#6366F1", opacity: 0.55,
+          filter: "blur(80px)", background: "#1F6E5C", opacity: 0.55,
           animation: "auroraPulse 16s ease-in-out infinite",
         }}
       />
@@ -219,15 +219,15 @@ function AuroraBackdrop() {
 }
 
 const C = {
-  bg: "#0B0A14",
-  ink: "#F1EEFB",
-  aubergine: "#8B5CF6",
-  sage: "#A78BFA",
-  blush: "#E879F9",
+  bg: "#081714",
+  ink: "#F2F5F3",
+  aubergine: "#0F3D34",
+  sage: "#3FA98A",
+  blush: "#E8A26B",
   gold: "#E0A860",
-  card: "#161325",
+  card: "#0F2420",
   line: "rgba(255,255,255,.10)",
-  muted: "#ADA6C4",
+  muted: "#9DB3AC",
   danger: "#F87171",
   success: "#4ADE80",
 };
@@ -650,7 +650,7 @@ export const MOCK_DESPESAS = [
   },
   {
     id: "desp-5",
-    descricao: "Software de agendamento & Sistema em Nuvem Studio Aura",
+    descricao: "Software de agendamento & Sistema em Nuvem Pharus",
     categoria: "outros",
     valor: 129.9,
     data: "2026-08-10",
@@ -1083,16 +1083,20 @@ export default function App() {
             <div
               className="loader-pulse"
               style={{
-                width: 54, height: 54, borderRadius: 16, background: C.aubergine,
+                width: 54, height: 54, borderRadius: "50%",
+                background: `radial-gradient(circle at 35% 30%, ${C.sage}, ${C.aubergine} 70%)`,
                 display: "grid", placeItems: "center", animation: "loaderPulse 2.2s ease-in-out infinite",
               }}
             >
-              <Flower2 size={24} color={C.gold} />
+              <Sparkles size={22} color={C.gold} />
             </div>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div className="display" style={{ fontSize: 21, fontWeight: 600, marginBottom: 8, letterSpacing: "-0.01em" }}>
-              Studio Aura
+            <div className="display" style={{ fontSize: 22, fontWeight: 600, marginBottom: 4, letterSpacing: "0.02em" }}>
+              PHARUS
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.22em", color: C.muted, marginBottom: 10 }}>
+              ESTÉTICA &amp; SPA
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 7, justifyContent: "center" }}>
               <span style={{ color: C.muted, fontSize: 13 }}>Carregando seus dados</span>
@@ -1177,14 +1181,14 @@ export default function App() {
 
         .card { box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 12px 28px -14px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04); }
 
-        .lift:hover { transform: translateY(-3px); box-shadow: 0 18px 34px -16px rgba(0,0,0,.5), 0 0 24px -4px rgba(139,92,246,.35); border-color: ${C.sage} !important; }
+        .lift:hover { transform: translateY(-3px); box-shadow: 0 18px 34px -16px rgba(0,0,0,.5), 0 0 24px -4px rgba(15,61,52,.35); border-color: ${C.sage} !important; }
         .lift:active { transform: translateY(-1px); }
 
         .chip { position: relative; overflow: hidden; }
-        .chip:hover:not(:disabled) { border-color: ${C.aubergine}; filter: brightness(0.97); box-shadow: 0 3px 10px rgba(139,92,246,.14); }
+        .chip:hover:not(:disabled) { border-color: ${C.aubergine}; filter: brightness(0.97); box-shadow: 0 3px 10px rgba(15,61,52,.14); }
         .chip:active:not(:disabled) { transform: scale(0.96); filter: brightness(0.94); }
 
-        .icon-btn:hover:not(:disabled) { background: rgba(139,92,246,.16) !important; color: ${C.ink} !important; }
+        .icon-btn:hover:not(:disabled) { background: rgba(15,61,52,.16) !important; color: ${C.ink} !important; }
         .icon-btn:active:not(:disabled) { transform: scale(0.90); }
 
         .icon-btn-dark:hover:not(:disabled) { filter: brightness(1.22) saturate(1.1); transform: translateY(-1px); }
@@ -1199,12 +1203,12 @@ export default function App() {
         .btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 3px 10px rgba(224,168,96,.32); }
         .btn-primary:disabled { background: ${C.line} !important; color: ${C.muted} !important; box-shadow: none; }
 
-        .btn-dark { background: ${C.aubergine} !important; color: #fff !important; box-shadow: 0 3px 10px rgba(139,92,246,.28); }
-        .btn-dark:hover:not(:disabled) { filter: brightness(1.18); transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(139,92,246,.4); }
+        .btn-dark { background: ${C.aubergine} !important; color: #fff !important; box-shadow: 0 3px 10px rgba(15,61,52,.28); }
+        .btn-dark:hover:not(:disabled) { filter: brightness(1.18); transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(15,61,52,.4); }
         .btn-dark:active:not(:disabled) { transform: translateY(0) scale(0.98); }
 
         .btn-ghost { background: ${C.card}; border: 1px solid ${C.line}; color: ${C.muted}; }
-        .btn-ghost:hover:not(:disabled) { border-color: ${C.aubergine}; color: ${C.ink}; background: rgba(139,92,246,.12); box-shadow: 0 3px 10px rgba(139,92,246,.18); }
+        .btn-ghost:hover:not(:disabled) { border-color: ${C.aubergine}; color: ${C.ink}; background: rgba(15,61,52,.12); box-shadow: 0 3px 10px rgba(15,61,52,.18); }
         .btn-ghost:active:not(:disabled) { transform: scale(0.97); }
 
         a, .link-hover { transition: color .16s ease; }
@@ -1270,10 +1274,18 @@ export default function App() {
       <AuroraBackdrop />
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: `1px solid ${C.line}`, background: "rgba(11,10,20,0.72)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 40 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: C.aubergine, display: "grid", placeItems: "center" }}>
-            <Flower2 size={18} color={C.gold} />
+          <div
+            style={{
+              width: 34, height: 34, borderRadius: "50%",
+              background: `radial-gradient(circle at 35% 30%, ${C.sage}, ${C.aubergine} 70%)`,
+              display: "grid", placeItems: "center", boxShadow: `0 0 14px -2px ${C.aubergine}`,
+            }}
+          >
+            <Sparkles size={16} color={C.gold} />
           </div>
-          <span className="display" style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em" }}>Studio Aura</span>
+          <span className="display" style={{ fontSize: 20, fontWeight: 600, letterSpacing: "0.01em" }}>
+            PHARUS <span style={{ fontWeight: 400, opacity: 0.75 }}>Estética &amp; Spa</span>
+          </span>
         </div>
 
         <div
@@ -1298,7 +1310,7 @@ export default function App() {
                 fontWeight: 600,
                 background: mode === m ? C.aubergine : "transparent",
                 color: mode === m ? "#fff" : C.muted,
-                boxShadow: mode === m ? "0 3px 10px rgba(139,92,246,.28)" : "none",
+                boxShadow: mode === m ? "0 3px 10px rgba(15,61,52,.28)" : "none",
                 border: "1px solid transparent",
               }}
             >
@@ -1492,9 +1504,9 @@ function GestaoView({
           </p>
           <h1
             className="display"
-            style={{ fontSize: "clamp(26px,5vw,36px)", fontWeight: 600, margin: 0, color: C.aubergine }}
+            style={{ fontSize: "clamp(26px,5vw,36px)", fontWeight: 600, margin: 0, color: C.sage }}
           >
-            Gestão Studio Aura
+            Gestão Pharus
           </h1>
         </div>
 
@@ -1576,7 +1588,7 @@ function GestaoView({
           label="Saldo em Caixa Real"
           value={brl(dre.fluxoCaixa.saldoFinal)}
           sub={`Entradas: ${brl(dre.fluxoCaixa.entradasTotais)}`}
-          accent={C.aubergine}
+          accent={C.sage}
         />
       </div>
 
@@ -1656,7 +1668,7 @@ function GestaoView({
                     background: isSelected ? C.aubergine : C.card,
                     color: isSelected ? "#fff" : C.ink,
                     border: `1.5px solid ${isSelected ? C.aubergine : C.line}`,
-                    boxShadow: isSelected ? "0 4px 14px rgba(139,92,246,.22)" : "none",
+                    boxShadow: isSelected ? "0 4px 14px rgba(15,61,52,.22)" : "none",
                   }}
                 >
                   <div style={{ fontSize: 12, fontWeight: 500, opacity: isSelected ? 0.9 : 0.7 }}>
@@ -1749,7 +1761,7 @@ function GestaoView({
                               gap: 4,
                               fontSize: 15,
                               fontWeight: 700,
-                              color: C.aubergine,
+                              color: C.sage,
                             }}
                           >
                             <Clock size={15} color={C.gold} /> {a.horario}
@@ -1789,7 +1801,7 @@ function GestaoView({
                       {/* Comissão info */}
                       <div style={{ textAlign: "right", minWidth: 110 }}>
                         <div style={{ fontSize: 11, color: C.muted }}>Comissão ({pro?.comissaoPercentual}%)</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: C.aubergine }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.sage }}>
                           {brl(a.comissaoCalculada)}
                         </div>
                         <div style={{ fontSize: 10, fontWeight: 600, color: a.comissaoPaga ? C.success : C.gold }}>
@@ -1832,7 +1844,7 @@ function GestaoView({
                               fontWeight: 600,
                               background: "rgba(255,255,255,.07)",
                               border: `1px solid ${C.line}`,
-                              color: C.aubergine,
+                              color: C.sage,
                             }}
                           >
                             Baixar Comissão
@@ -1895,7 +1907,7 @@ function GestaoView({
                 <DREHeaderRow
                   label="1. RECEITA OPERACIONAL BRUTA"
                   value={brl(dre.receitas.receitaBrutaTotal)}
-                  color={C.aubergine}
+                  color={C.sage}
                 />
                 <div style={{ paddingLeft: 16, marginTop: 6, display: "grid", gap: 4 }}>
                   <DRESubRow
@@ -1947,7 +1959,7 @@ function GestaoView({
                     justifyContent: "space-between",
                     fontSize: 15,
                     fontWeight: 700,
-                    color: C.aubergine,
+                    color: C.sage,
                   }}
                 >
                   <span>3. (=) MARGEM DE CONTRIBUIÇÃO (LUCRO BRUTO)</span>
@@ -2000,7 +2012,7 @@ function GestaoView({
                   }}
                 >
                   <div>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: C.aubergine }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: C.sage }}>
                       5. (=) RESULTADO LÍQUIDO DO EXERCÍCIO
                     </span>
                     <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
@@ -2048,7 +2060,7 @@ function GestaoView({
                 <Row
                   label="Saldo Financeiro em Caixa"
                   value={brl(dre.fluxoCaixa.saldoFinal)}
-                  color={C.aubergine}
+                  color={C.sage}
                   bold
                 />
               </div>
@@ -2191,7 +2203,7 @@ function GestaoView({
                       >
                         Pacote #{pac.id}
                       </span>
-                      <h4 style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 700, color: C.aubergine }}>
+                      <h4 style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 700, color: C.sage }}>
                         {pac.clienteNome}
                       </h4>
                       <p style={{ margin: "2px 0 0", fontSize: 13, color: C.muted }}>
@@ -2270,7 +2282,7 @@ function GestaoView({
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: C.muted }}>Saldo Restante</span>
-                      <strong style={{ color: C.aubergine }}>{brl(saldo?.valorRestante)}</strong>
+                      <strong style={{ color: C.sage }}>{brl(saldo?.valorRestante)}</strong>
                     </div>
                   </div>
 
@@ -2349,7 +2361,7 @@ function GestaoView({
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 11, color: C.muted }}>Comissão Total Apurada</div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: C.aubergine }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: C.sage }}>
                         {brl(item.comissaoTotalApurada)}
                       </div>
                     </div>
@@ -2470,7 +2482,7 @@ function GestaoView({
                     }}
                   >
                     <div>
-                      <h4 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.aubergine }}>
+                      <h4 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.sage }}>
                         {cli.nome}
                       </h4>
                       <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>
@@ -2794,7 +2806,7 @@ function ClienteView({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    boxShadow: isSelected ? "0 10px 26px -8px rgba(139,92,246,.35)" : undefined,
+                    boxShadow: isSelected ? "0 10px 26px -8px rgba(15,61,52,.35)" : undefined,
                   }}
                 >
                   <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
@@ -2848,7 +2860,7 @@ function ClienteView({
               </div>
             ) : (
               <>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2, color: C.aubergine }}>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2, color: C.sage }}>
                   {selService.nome}
                 </div>
                 <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px" }}>
@@ -3040,7 +3052,7 @@ function ClienteView({
                       color: "#fff",
                       display: "grid",
                       placeItems: "center",
-                      boxShadow: "0 3px 8px rgba(139,92,246,.28)",
+                      boxShadow: "0 3px 8px rgba(15,61,52,.28)",
                     }}
                   >
                     <Plus size={18} />
@@ -3533,11 +3545,11 @@ function NovoAgendamentoModal({
 }
 
 const CATEGORIAS_DESPESA = [
-  { value: "insumos_materiais", label: "Insumos & Materiais de Atendimento", icon: Package, color: "#A78BFA" },
+  { value: "insumos_materiais", label: "Insumos & Materiais de Atendimento", icon: Package, color: "#3FA98A" },
   { value: "aluguel_fixo", label: "Aluguel & Custos Fixos", icon: Receipt, color: "#E0A860" },
-  { value: "marketing", label: "Marketing & Anúncios", icon: ArrowUpRight, color: "#E879F9" },
-  { value: "comissao", label: "Repasse de Comissão", icon: Percent, color: "#6366F1" },
-  { value: "outros", label: "Outras Despesas Operacionais", icon: FileText, color: "#ADA6C4" },
+  { value: "marketing", label: "Marketing & Anúncios", icon: ArrowUpRight, color: "#E8A26B" },
+  { value: "comissao", label: "Repasse de Comissão", icon: Percent, color: "#1F6E5C" },
+  { value: "outros", label: "Outras Despesas Operacionais", icon: FileText, color: "#9DB3AC" },
 ];
 
 function NovaDespesaModal({ onClose, onSave }) {
@@ -3992,7 +4004,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
                       fontWeight: 600,
                       borderRadius: 8,
                       background: servicoTipo === "existente" ? C.sage : "rgba(255,255,255,.07)",
-                      color: servicoTipo === "existente" ? "#0B0A14" : C.ink,
+                      color: servicoTipo === "existente" ? "#081714" : C.ink,
                     }}
                   >
                     Serviço Existente
@@ -4008,7 +4020,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
                       fontWeight: 600,
                       borderRadius: 8,
                       background: servicoTipo === "novo" ? C.sage : "rgba(255,255,255,.07)",
-                      color: servicoTipo === "novo" ? "#0B0A14" : C.ink,
+                      color: servicoTipo === "novo" ? "#081714" : C.ink,
                     }}
                   >
                     Cadastrar Novo Serviço
@@ -4381,7 +4393,7 @@ function TabBtn({ active, onClick, icon, label, count }) {
         background: active ? C.aubergine : C.card,
         color: active ? "#fff" : C.ink,
         border: `1px solid ${active ? C.aubergine : C.line}`,
-        boxShadow: active ? "0 4px 12px rgba(139,92,246,.25)" : undefined,
+        boxShadow: active ? "0 4px 12px rgba(15,61,52,.25)" : undefined,
       }}
     >
       {icon}
@@ -4509,7 +4521,7 @@ function StatusBadge({ status }) {
 function TipoPagamentoBadge({ tipo, sessaoNum }) {
   const map = {
     pago_pix: ["rgba(127,163,150,.16)", C.sage, "PIX"],
-    pago_cartao: ["rgba(139,92,246,.18)", C.aubergine, "Cartão"],
+    pago_cartao: ["rgba(15,61,52,.18)", C.aubergine, "Cartão"],
     pago_dinheiro: ["rgba(74,222,128,.16)", C.success, "Dinheiro"],
     pacote_sessao: ["rgba(224,168,96,.18)", C.gold, sessaoNum ? `Pacote (${sessaoNum}ª sessão)` : "Pacote"],
     pendente_pos_atendimento: ["rgba(248,113,113,.16)", C.danger, "Pendente Pós"],

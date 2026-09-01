@@ -2,7 +2,7 @@
   "name": "studio-aura",
   "version": "1.0.0",
   "private": true,
-  "description": "Sistema de agendamento, loja e gestão do Studio Aura",
+  "description": "Sistema de agendamento, loja e gestão da Pharus Estética & Spa",
   "scripts": {
     "build": "esbuild entry.jsx --bundle --minify --format=iife --outfile=docs/bundle.js"
   },
