@@ -1114,7 +1114,7 @@ export default function App() {
 
   if (carregando) {
     return (
-      <div style={{ background: C.bg, minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ background: "transparent", minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
         <style>{`
           @keyframes loaderPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 26px -4px ${C.aubergine}; } 50% { transform: scale(1.07); box-shadow: 0 0 42px 0px ${C.aubergine}; } }
           @keyframes loaderSpin { to { transform: rotate(360deg); } }
@@ -1175,7 +1175,7 @@ export default function App() {
 
   if (erroCarregamento) {
     return (
-      <div style={{ background: C.bg, minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", padding: 24, color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ background: "transparent", minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", padding: 24, color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
         <AuroraBackdrop />
         <div
           className="card"
@@ -1207,7 +1207,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ background: "transparent", minHeight: "100vh", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
