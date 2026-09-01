@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Calendar,
   ShoppingBag,
@@ -154,15 +154,100 @@ import * as db from "./db/queries.js";
 // ─────────────────────────────────────────────────────────────
 // 2. DESIGN TOKENS & HELPERS VISUAIS
 // ─────────────────────────────────────────────────────────────
-const AURORA_STARS = Array.from({ length: 60 }, () => ({
-  left: `${Math.random() * 100}%`,
-  top: `${Math.random() * 100}%`,
-  size: Math.random() * 1.6 + 0.6,
-  delay: Math.random() * 6,
-  duration: Math.random() * 3 + 2.5,
-}));
-
 function AuroraBackdrop() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    let width = 0, height = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let particles = [];
+    let rafId = null;
+
+    const DOT_COLORS = [C.sage, C.gold, "#1F6E5C"];
+    const LINK_DIST = 140;
+
+    function makeParticles() {
+      const area = width * height;
+      const count = Math.min(70, Math.max(24, Math.round(area / 22000)));
+      particles = Array.from({ length: count }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        r: Math.random() * 1.6 + 1,
+        color: DOT_COLORS[Math.floor(Math.random() * DOT_COLORS.length)],
+      }));
+    }
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      makeParticles();
+    }
+
+    function drawFrame() {
+      ctx.clearRect(0, 0, width, height);
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        for (let j = i + 1; j < particles.length; j++) {
+          const q = particles[j];
+          const dx = p.x - q.x, dy = p.y - q.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < LINK_DIST) {
+            ctx.strokeStyle = `rgba(224,168,96,${(1 - dist / LINK_DIST) * 0.35})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+            ctx.stroke();
+          }
+        }
+      }
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = 0.85;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function step() {
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+      }
+      drawFrame();
+      rafId = requestAnimationFrame(step);
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
+
+    if (reduceMotion) {
+      drawFrame();
+    } else {
+      rafId = requestAnimationFrame(step);
+    }
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
   return (
     <div
       aria-hidden="true"
@@ -181,55 +266,8 @@ function AuroraBackdrop() {
         }}
       />
 
-      {/* Raio de luz diagonal, tipo sol penetrando a água */}
-      <div
-        className="ocean-ray"
-        style={{
-          position: "absolute", top: "-20%", left: "38%", width: 260, height: "150%",
-          background: `linear-gradient(180deg, ${C.gold}33 0%, transparent 70%)`,
-          transform: "rotate(12deg)", filter: "blur(30px)", transformOrigin: "top center",
-          animation: "oceanRaySway 14s ease-in-out infinite",
-        }}
-      />
-
-      {/* Correntezas — faixas largas de luz se movendo devagar, como água em profundidade */}
-      <div
-        className="aurora-blob"
-        style={{
-          position: "absolute", width: "115%", height: 340, left: "-10%", top: "-8%", borderRadius: "50%",
-          filter: "blur(70px)", background: C.aubergine, opacity: 0.7,
-          animation: "oceanCurrent1 24s ease-in-out infinite",
-        }}
-      />
-      <div
-        className="aurora-blob"
-        style={{
-          position: "absolute", width: "120%", height: 300, left: "-15%", top: "38%", borderRadius: "50%",
-          filter: "blur(70px)", background: "#1F6E5C", opacity: 0.5,
-          animation: "oceanCurrent2 30s ease-in-out infinite",
-        }}
-      />
-      <div
-        className="aurora-blob"
-        style={{
-          position: "absolute", width: "110%", height: 320, left: "-8%", bottom: "-14%", borderRadius: "50%",
-          filter: "blur(70px)", background: C.sage, opacity: 0.4,
-          animation: "oceanCurrent1 26s ease-in-out infinite reverse",
-        }}
-      />
-
-      {/* Bolhas / brilho na água subindo */}
-      {AURORA_STARS.map((s, i) => (
-        <div
-          key={i}
-          className="aurora-star"
-          style={{
-            position: "absolute", left: s.left, top: s.top, width: s.size, height: s.size,
-            borderRadius: "50%", background: "#fff",
-            animation: `oceanBubble ${s.duration + 4}s ease-in-out ${s.delay}s infinite`,
-          }}
-        />
-      ))}
+      {/* Rede de partículas conectadas — efeito de correnteza/plâncton luminoso se movendo */}
+      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
     </div>
   );
 }
@@ -1234,17 +1272,17 @@ export default function App() {
         .aurora-blob-a {
           width: 340px; height: 340px; left: -70px; top: -90px;
           background: ${C.aubergine}; opacity: .4;
-          animation: auroraDrift1 22s ease-in-out infinite;
+          animation: oceanCurrent1 22s ease-in-out infinite;
         }
         .aurora-blob-b {
           width: 280px; height: 280px; right: 6%; top: -50px;
           background: ${C.gold}; opacity: .28;
-          animation: auroraDrift2 26s ease-in-out infinite;
+          animation: oceanCurrent1 26s ease-in-out infinite reverse;
         }
         .aurora-blob-c {
           width: 240px; height: 240px; left: 32%; bottom: -110px;
           background: ${C.sage}; opacity: .32;
-          animation: auroraPulse 15s ease-in-out infinite;
+          animation: oceanCurrent2 15s ease-in-out infinite;
         }
         @keyframes oceanCurrent1 {
           0% { transform: translate(-4%, 0) scaleX(1); }
@@ -1256,22 +1294,12 @@ export default function App() {
           50% { transform: translate(-5%, -16px) scaleX(0.96); }
           100% { transform: translate(3%, 0) scaleX(1.05); }
         }
-        @keyframes oceanRaySway {
-          0%, 100% { transform: rotate(12deg) translateX(0); opacity: .7; }
-          50% { transform: rotate(6deg) translateX(30px); opacity: 1; }
-        }
         @keyframes auroraFieldPulse {
           0%, 100% { opacity: .5; }
           50% { opacity: .75; }
         }
-        @keyframes oceanBubble {
-          0% { transform: translateY(0); opacity: 0; }
-          15% { opacity: .9; }
-          85% { opacity: .5; }
-          100% { transform: translateY(-140px); opacity: 0; }
-        }
         @media (prefers-reduced-motion: reduce) {
-          .aurora-blob, .aurora-field, .aurora-star, .ocean-ray { animation: none !important; opacity: .4 !important; }
+          .aurora-blob, .aurora-field { animation: none !important; opacity: .4 !important; }
         }
 
         .two-col { grid-template-columns: 1fr; }
