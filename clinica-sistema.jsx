@@ -167,18 +167,18 @@ function AuroraBackdrop() {
     let particles = [];
     let rafId = null;
 
-    const DOT_COLORS = [C.sage, C.gold, "#1F6E5C"];
-    const LINK_DIST = 140;
+    const DOT_COLORS = ["#7CE8C4", "#F0C177", "#5FD3AE"];
+    const LINK_DIST = 190;
 
     function makeParticles() {
       const area = width * height;
-      const count = Math.min(70, Math.max(24, Math.round(area / 22000)));
+      const count = Math.min(200, Math.max(70, Math.round(area / 5500)));
       particles = Array.from({ length: count }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.35,
-        vy: (Math.random() - 0.5) * 0.35,
-        r: Math.random() * 1.6 + 1,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        r: Math.random() * 2 + 2.4,
         color: DOT_COLORS[Math.floor(Math.random() * DOT_COLORS.length)],
       }));
     }
@@ -203,8 +203,8 @@ function AuroraBackdrop() {
           const dx = p.x - q.x, dy = p.y - q.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < LINK_DIST) {
-            ctx.strokeStyle = `rgba(224,168,96,${(1 - dist / LINK_DIST) * 0.35})`;
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = `rgba(240,193,119,${(1 - dist / LINK_DIST) * 0.9})`;
+            ctx.lineWidth = 1.4;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(q.x, q.y);
@@ -216,9 +216,7 @@ function AuroraBackdrop() {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = 0.85;
         ctx.fill();
-        ctx.globalAlpha = 1;
       }
     }
 
@@ -251,7 +249,7 @@ function AuroraBackdrop() {
   return (
     <div
       aria-hidden="true"
-      style={{ position: "fixed", inset: 0, zIndex: -1, overflow: "hidden", background: C.bg, pointerEvents: "none" }}
+      style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", background: C.bg, pointerEvents: "none" }}
     >
       {/* Luz ambiente vindo "de cima da água" */}
       <div
@@ -1320,6 +1318,7 @@ export default function App() {
         }
       `}</style>
       <AuroraBackdrop />
+      <div style={{ position: "relative", zIndex: 1 }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: `1px solid ${C.line}`, background: "rgba(11,10,20,0.72)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 40 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
@@ -1404,6 +1403,7 @@ export default function App() {
           produtosVendidos={produtosVendidos}
         />
       )}
+      </div>
     </div>
   );
 }
