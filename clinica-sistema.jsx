@@ -2810,7 +2810,11 @@ function ClienteView({
     () =>
       CATEGORIAS_SERVICO.map((cat) => ({
         ...cat,
-        itens: servicosAtivos.filter((s) => s.categoria === cat.value),
+        // Itens em promoção já aparecem em destaque na seção "Promoção da
+        // Semana" — não repete aqui pra não mostrar o mesmo card 2x.
+        itens: servicosAtivos.filter(
+          (s) => s.categoria === cat.value && !(s.emPromocao && s.precoPromocional != null)
+        ),
       })).filter((g) => g.itens.length > 0),
     [servicosAtivos]
   );
