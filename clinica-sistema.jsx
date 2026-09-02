@@ -1154,12 +1154,11 @@ export default function App() {
             <div
               className="loader-pulse"
               style={{
-                width: 54, height: 54, borderRadius: "50%",
-                background: `radial-gradient(circle at 35% 30%, ${C.sage}, ${C.aubergine} 70%)`,
+                width: 54, height: 54, borderRadius: "50%", overflow: "hidden",
                 display: "grid", placeItems: "center", animation: "loaderPulse 2.2s ease-in-out infinite",
               }}
             >
-              <Sparkles size={22} color={C.gold} />
+              <img src="./logo-pharus.png" alt="Pharus" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
           </div>
           <div style={{ textAlign: "center" }}>
@@ -1342,12 +1341,12 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
             style={{
-              width: 34, height: 34, borderRadius: "50%",
-              background: `radial-gradient(circle at 35% 30%, ${C.sage}, ${C.aubergine} 70%)`,
+              width: 34, height: 34, borderRadius: "50%", overflow: "hidden",
               display: "grid", placeItems: "center", boxShadow: `0 0 14px -2px ${C.aubergine}`,
+              flex: "0 0 auto",
             }}
           >
-            <Sparkles size={16} color={C.gold} />
+            <img src="./logo-pharus.png" alt="Pharus" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
           <span className="display" style={{ fontSize: 20, fontWeight: 600, letterSpacing: "0.01em" }}>
             PHARUS <span style={{ fontWeight: 400, opacity: 0.75 }}>Estética &amp; Spa</span>
