@@ -42,6 +42,9 @@ const mapServico = (r) => ({
   precoBase: Number(r.preco_base),
   categoria: r.categoria,
   proPadraoId: r.pro_padrao_id,
+  ativo: r.ativo,
+  emPromocao: r.em_promocao,
+  precoPromocional: r.preco_promocional == null ? null : Number(r.preco_promocional),
 });
 
 const mapModeloPacote = (r) => ({
@@ -356,6 +359,23 @@ export async function criarServico(servico) {
       })
       .select()
       .single()
+  );
+  return mapServico(row);
+}
+
+export async function atualizarServico(id, patch) {
+  const payload = {};
+  if (patch.nome !== undefined) payload.nome = patch.nome;
+  if (patch.duracao !== undefined) payload.duracao_minutos = patch.duracao;
+  if (patch.precoBase !== undefined) payload.preco_base = patch.precoBase;
+  if (patch.categoria !== undefined) payload.categoria = patch.categoria;
+  if (patch.proPadraoId !== undefined) payload.pro_padrao_id = patch.proPadraoId || null;
+  if (patch.ativo !== undefined) payload.ativo = patch.ativo;
+  if (patch.emPromocao !== undefined) payload.em_promocao = patch.emPromocao;
+  if (patch.precoPromocional !== undefined) payload.preco_promocional = patch.precoPromocional;
+
+  const row = unwrap(
+    await supabase.from("servicos").update(payload).eq("id", id).select().single()
   );
   return mapServico(row);
 }

@@ -284,8 +284,27 @@ const C = {
   success: "#4ADE80",
 };
 
+// Categorias de serviço: usadas no filtro/ícone da Área da Cliente, no
+// cadastro de serviço (Gestão) e no agrupamento do menu completo.
+export const CATEGORIAS_SERVICO = [
+  { value: "massoterapia", label: "Massagens", icon: Hand, color: "#3FA98A" },
+  { value: "estetica_facial", label: "Facial", icon: Sparkles, color: "#E0A860" },
+  { value: "corporal", label: "Recuperação Muscular", icon: Flower2, color: "#7CE8C4" },
+  { value: "pacotes_spa", label: "Pacotes & Experiências", icon: Package, color: "#E8A26B" },
+  { value: "cilios_sobrancelhas", label: "Lash Designer", icon: Eye, color: "#1F6E5C" },
+  { value: "depilacao", label: "Depilação", icon: Scissors, color: "#9DB3AC" },
+];
+
 export const brl = (n) =>
   (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+// Preço realmente cobrado: se o serviço está em promoção, prevalece o
+// preço promocional (mesma regra aplicada no servidor, ver
+// supabase/migrations/0005_menu_real_promocoes.sql).
+export const precoEfetivo = (servico) =>
+  servico?.emPromocao && servico?.precoPromocional != null
+    ? servico.precoPromocional
+    : servico?.precoBase || 0;
 
 export const formatDataBR = (isoDate) => {
   if (!isoDate) return "";
@@ -1439,6 +1458,7 @@ function GestaoView({
   const [showNovoAgendamento, setShowNovoAgendamento] = useState(false);
   const [showNovaDespesa, setShowNovaDespesa] = useState(false);
   const [showNovoPacoteModal, setShowNovoPacoteModal] = useState(false);
+  const [showNovoServicoForm, setShowNovoServicoForm] = useState(false);
 
   // DRE CALCULADO EM TEMPO REAL (produtosVendidos vem de vendas reais
   // registradas pela loja — ver db/queries.js#listarItensVendidos)
@@ -1480,6 +1500,16 @@ function GestaoView({
     } catch (err) {
       window.alert(err.message || "Não foi possível criar o agendamento.");
     }
+  };
+
+  const handleAtualizarServico = async (servicoId, patch) => {
+    await db.atualizarServico(servicoId, patch);
+    setServicos(await db.listarServicos());
+  };
+
+  const handleCriarServicoDireto = async (novo) => {
+    await db.criarServico(novo);
+    setServicos(await db.listarServicos());
   };
 
   const handleUpdateStatusAgendamento = async (agendamentoId, novoStatus) => {
@@ -1683,6 +1713,13 @@ function GestaoView({
           icon={<Users size={16} />}
           label="Clientes Cadastrados"
           count={clientes.length}
+        />
+        <NavTabButton
+          active={activeTab === "servicos"}
+          onClick={() => setActiveTab("servicos")}
+          icon={<Sparkles size={16} />}
+          label="Serviços & Menu"
+          count={servicos.filter((s) => s.ativo !== false).length}
         />
       </div>
 
@@ -2589,6 +2626,55 @@ function GestaoView({
         </div>
       )}
 
+      {/* TAB CONTENT: SERVIÇOS & MENU */}
+      {activeTab === "servicos" && (
+        <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <h3 className="display" style={{ fontSize: 20, margin: "0 0 2px" }}>
+                Serviços & Menu
+              </h3>
+              <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>
+                Preço, duração, profissional padrão e promoções — o que muda aqui reflete direto na Área da Cliente.
+              </p>
+            </div>
+            {!showNovoServicoForm && (
+              <button type="button" className="btn-primary" onClick={() => setShowNovoServicoForm(true)} style={{ padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                <Plus size={16} /> Novo Serviço
+              </button>
+            )}
+          </div>
+
+          {showNovoServicoForm && (
+            <NovoServicoForm
+              profissionais={profissionais}
+              onClose={() => setShowNovoServicoForm(false)}
+              onCreate={async (novo) => {
+                await handleCriarServicoDireto(novo);
+                setShowNovoServicoForm(false);
+              }}
+            />
+          )}
+
+          {CATEGORIAS_SERVICO.map((cat) => {
+            const itens = servicos.filter((s) => s.categoria === cat.value);
+            if (itens.length === 0) return null;
+            return (
+              <div key={cat.value}>
+                <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: ".04em" }}>
+                  {cat.label}
+                </h4>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {itens.map((s) => (
+                    <ServicoRow key={s.id} servico={s} profissionais={profissionais} onSave={handleAtualizarServico} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Modais de Ação */}
       {showNovoAgendamento && (
         <NovoAgendamentoModal
@@ -2716,6 +2802,20 @@ function ClienteView({
 
   const selPro = profissionais.find((p) => p.id === selService?.proPadraoId) || profissionais[0];
 
+  const servicosAtivos = useMemo(() => servicos.filter((s) => s.ativo !== false), [servicos]);
+  const servicosPromocao = useMemo(
+    () => servicosAtivos.filter((s) => s.emPromocao && s.precoPromocional != null),
+    [servicosAtivos]
+  );
+  const servicosPorCategoria = useMemo(
+    () =>
+      CATEGORIAS_SERVICO.map((cat) => ({
+        ...cat,
+        itens: servicosAtivos.filter((s) => s.categoria === cat.value),
+      })).filter((g) => g.itens.length > 0),
+    [servicosAtivos]
+  );
+
   const conflict = !!(
     selService &&
     selDate &&
@@ -2774,15 +2874,22 @@ function ClienteView({
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px clamp(16px,4vw,24px) 80px" }}>
       {/* Hero */}
-      <div style={{ position: "relative", marginBottom: 36 }}>
-        <div
-          aria-hidden="true"
-          style={{ position: "absolute", inset: "-70px -20px -40px", overflow: "hidden", pointerEvents: "none", zIndex: 0 }}
-        >
-          <div className="aurora-blob aurora-blob-a" />
-          <div className="aurora-blob aurora-blob-b" />
-          <div className="aurora-blob aurora-blob-c" />
-        </div>
+      <div
+        style={{
+          position: "relative",
+          marginBottom: 36,
+          borderRadius: 24,
+          overflow: "hidden",
+          padding: "clamp(28px,6vw,52px) clamp(20px,5vw,44px)",
+          minHeight: 260,
+          display: "flex",
+          alignItems: "flex-end",
+          backgroundImage: `linear-gradient(180deg, rgba(4,15,13,.35) 0%, rgba(4,15,13,.55) 55%, rgba(4,15,13,.88) 100%), url('./pharus-hero.jpg')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          border: `1px solid ${C.line}`,
+        }}
+      >
         <div style={{ position: "relative", zIndex: 1 }}>
           <p
             style={{
@@ -2805,6 +2912,8 @@ function ClienteView({
               margin: 0,
               lineHeight: 1.1,
               maxWidth: 560,
+              color: "#fff",
+              textShadow: "0 2px 16px rgba(0,0,0,.35)",
             }}
           >
             Reserve seu momento e leve o cuidado pra casa.
@@ -2832,63 +2941,55 @@ function ClienteView({
       {tab === "agendar" && (
         <div className="two-col" style={{ display: "grid", gap: 24, alignItems: "start" }}>
           {/* Lista de Serviços */}
-          <div style={{ display: "grid", gap: 14 }}>
-            {servicos.map((s) => {
-              const isSelected = selService?.id === s.id;
-              const pro = profissionais.find((p) => p.id === s.proPadraoId) || profissionais[0];
-              return (
-                <button
-                  key={s.id}
-                  className="lift card"
-                  onClick={() => {
-                    setSelService(s);
-                    setSelDate(null);
-                    setSelSlot(null);
-                  }}
-                  style={{
-                    textAlign: "left",
-                    background: C.card,
-                    borderRadius: 16,
-                    padding: 20,
-                    border: `1.5px solid ${isSelected ? C.aubergine : C.line}`,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    boxShadow: isSelected ? "0 10px 26px -8px rgba(15,61,52,.35)" : undefined,
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 12,
-                        display: "grid",
-                        placeItems: "center",
-                        background: pro?.corIdentificacao + "22",
+          <div style={{ display: "grid", gap: 28 }}>
+            {servicosPromocao.length > 0 && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <span style={{ fontSize: 17 }} aria-hidden="true">🔥</span>
+                  <h3 className="display" style={{ margin: 0, fontSize: 17, color: C.gold }}>
+                    Promoção da Semana
+                  </h3>
+                </div>
+                <div style={{ display: "grid", gap: 14 }}>
+                  {servicosPromocao.map((s) => (
+                    <ServicoCard
+                      key={s.id}
+                      servico={s}
+                      profissional={s.proPadraoId ? profissionais.find((p) => p.id === s.proPadraoId) : null}
+                      selected={selService?.id === s.id}
+                      onSelect={() => {
+                        setSelService(s);
+                        setSelDate(null);
+                        setSelSlot(null);
                       }}
-                    >
-                      {s.categoria === "massoterapia" ? (
-                        <Hand size={20} color={pro?.corIdentificacao} />
-                      ) : s.categoria === "cilios_sobrancelhas" ? (
-                        <Eye size={20} color={pro?.corIdentificacao} />
-                      ) : (
-                        <Sparkles size={20} color={pro?.corIdentificacao} />
-                      )}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 16, color: C.ink }}>{s.nome}</div>
-                      <div style={{ color: C.muted, fontSize: 13, marginTop: 2 }}>
-                        {pro?.nome} · {s.duracao} min
-                      </div>
-                    </div>
-                  </div>
-                  <div className="display" style={{ fontSize: 20, fontWeight: 600 }}>
-                    {brl(s.precoBase)}
-                  </div>
-                </button>
-              );
-            })}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {servicosPorCategoria.map((cat) => (
+              <div key={cat.value}>
+                <h3 className="display" style={{ margin: "0 0 12px", fontSize: 17, color: C.ink }}>
+                  {cat.label}
+                </h3>
+                <div style={{ display: "grid", gap: 14 }}>
+                  {cat.itens.map((s) => (
+                    <ServicoCard
+                      key={s.id}
+                      servico={s}
+                      profissional={s.proPadraoId ? profissionais.find((p) => p.id === s.proPadraoId) : null}
+                      selected={selService?.id === s.id}
+                      onSelect={() => {
+                        setSelService(s);
+                        setSelDate(null);
+                        setSelSlot(null);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Sidebar Agendamento */}
@@ -2912,7 +3013,7 @@ function ClienteView({
                   {selService.nome}
                 </div>
                 <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px" }}>
-                  {selPro.nome} · {brl(selService.precoBase)}
+                  {selPro.nome} · {brl(precoEfetivo(selService))}
                 </p>
 
                 <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
@@ -3047,7 +3148,7 @@ function ClienteView({
                     fontSize: 15,
                   }}
                 >
-                  Confirmar Agendamento ({brl(selService.precoBase)})
+                  Confirmar Agendamento ({brl(precoEfetivo(selService))})
                 </button>
               </>
             )}
@@ -3293,7 +3394,7 @@ function NovoAgendamentoModal({
     if (!clienteNomeFinal) return;
     if (clienteTipo === "novo" && !novoClienteTelefone.trim()) return;
 
-    let valorCobrado = servicoSel?.precoBase || 140;
+    let valorCobrado = precoEfetivo(servicoSel) || 140;
     let sessaoNumero = null;
 
     if (tipoPagamento === "pacote_sessao" && pacSel) {
@@ -3471,11 +3572,14 @@ function NovoAgendamentoModal({
               onChange={(e) => setServicoId(e.target.value)}
               style={inputStyle}
             >
-              {servicos.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nome} · {brl(s.precoBase)} ({s.duracao} min)
-                </option>
-              ))}
+              {servicos
+                .filter((s) => s.ativo !== false)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.emPromocao && s.precoPromocional != null ? "🔥 " : ""}
+                    {s.nome} · {brl(precoEfetivo(s))} ({s.duracao} min)
+                  </option>
+                ))}
             </select>
           </div>
 
@@ -4114,10 +4218,9 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
                       onChange={(e) => setNovoServicoCategoria(e.target.value)}
                       style={inputStyle}
                     >
-                      <option value="massoterapia">Massoterapia</option>
-                      <option value="cilios_sobrancelhas">Cílios & Sobrancelhas</option>
-                      <option value="estetica_facial">Estética Facial</option>
-                      <option value="corporal">Corporal</option>
+                      {CATEGORIAS_SERVICO.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
                     </select>
                     <select
                       value={novoServicoProId}
@@ -4424,6 +4527,338 @@ function ConfirmModal({ data, onClose }) {
 // ─────────────────────────────────────────────────────────────
 // 9. COMPONENTES AUXILIARES
 // ─────────────────────────────────────────────────────────────
+
+function ServicoCard({ servico, profissional, selected, onSelect }) {
+  const catInfo = CATEGORIAS_SERVICO.find((c) => c.value === servico.categoria);
+  const Icon = catInfo?.icon || Sparkles;
+  const cor = profissional?.corIdentificacao || catInfo?.color || C.sage;
+  const promo = servico.emPromocao && servico.precoPromocional != null;
+
+  return (
+    <button
+      className="lift card"
+      onClick={onSelect}
+      style={{
+        textAlign: "left",
+        background: C.card,
+        borderRadius: 16,
+        padding: 20,
+        border: `1.5px solid ${selected ? C.aubergine : promo ? C.gold : C.line}`,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10,
+        boxShadow: selected ? "0 10px 26px -8px rgba(15,61,52,.35)" : undefined,
+      }}
+    >
+      <div style={{ display: "flex", gap: 14, alignItems: "center", minWidth: 0 }}>
+        <div
+          style={{
+            flex: "0 0 auto",
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            display: "grid",
+            placeItems: "center",
+            background: cor + "22",
+          }}
+        >
+          <Icon size={20} color={cor} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 16, color: C.ink, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {servico.nome}
+            {promo && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#081714",
+                  background: C.gold,
+                  padding: "2px 7px",
+                  borderRadius: 20,
+                  letterSpacing: ".04em",
+                }}
+              >
+                PROMOÇÃO
+              </span>
+            )}
+          </div>
+          <div style={{ color: C.muted, fontSize: 13, marginTop: 2 }}>
+            {profissional?.nome ? `${profissional.nome} · ` : ""}
+            {servico.duracao} min
+          </div>
+        </div>
+      </div>
+      <div style={{ textAlign: "right", flex: "0 0 auto" }}>
+        {promo && (
+          <div style={{ fontSize: 12, color: C.muted, textDecoration: "line-through" }}>
+            {brl(servico.precoBase)}
+          </div>
+        )}
+        <div className="display" style={{ fontSize: 20, fontWeight: 600, color: promo ? C.gold : C.ink }}>
+          {brl(precoEfetivo(servico))}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+const rowInputStyle = {
+  width: "100%",
+  padding: "9px 11px",
+  borderRadius: 9,
+  border: `1px solid ${C.line}`,
+  fontSize: 13,
+  outline: "none",
+  background: C.bg,
+  color: C.ink,
+};
+
+const rowPrefixRS = (
+  <span
+    style={{
+      position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)",
+      color: C.muted, fontSize: 13, pointerEvents: "none",
+    }}
+  >
+    R$
+  </span>
+);
+
+// Card de serviço editável na aba Gestão → Serviços: mantém estado local
+// (evita perder o que a usuária está digitando a cada refetch) e só
+// grava no banco quando "Salvar" é clicado.
+function ServicoRow({ servico, profissionais, onSave }) {
+  const [nome, setNome] = useState(servico.nome);
+  const [categoria, setCategoria] = useState(servico.categoria);
+  const [duracao, setDuracao] = useState(String(servico.duracao));
+  const [precoBase, setPrecoBase] = useState(String(servico.precoBase));
+  const [proPadraoId, setProPadraoId] = useState(servico.proPadraoId || "");
+  const [ativo, setAtivo] = useState(servico.ativo !== false);
+  const [emPromocao, setEmPromocao] = useState(!!servico.emPromocao);
+  const [precoPromocional, setPrecoPromocional] = useState(
+    servico.precoPromocional != null ? String(servico.precoPromocional) : ""
+  );
+  const [salvando, setSalvando] = useState(false);
+  const [error, setError] = useState("");
+
+  const catInfo = CATEGORIAS_SERVICO.find((c) => c.value === categoria);
+  const Icon = catInfo?.icon || Sparkles;
+
+  const salvar = async () => {
+    setError("");
+    const precoBaseNum = Number(String(precoBase).replace(",", "."));
+    const duracaoNum = Number(duracao);
+    if (!nome.trim()) return setError("Informe o nome do serviço.");
+    if (!precoBaseNum || precoBaseNum <= 0) return setError("Informe um preço válido.");
+    if (!duracaoNum || duracaoNum <= 0) return setError("Informe uma duração válida.");
+
+    let precoPromoNum = null;
+    if (emPromocao) {
+      precoPromoNum = Number(String(precoPromocional).replace(",", "."));
+      if (!precoPromoNum || precoPromoNum <= 0) return setError("Informe o preço promocional.");
+      if (precoPromoNum >= precoBaseNum) return setError("O preço promocional precisa ser menor que o preço normal.");
+    }
+
+    setSalvando(true);
+    try {
+      await onSave(servico.id, {
+        nome: nome.trim(),
+        categoria,
+        duracao: duracaoNum,
+        precoBase: precoBaseNum,
+        proPadraoId: proPadraoId || null,
+        ativo,
+        emPromocao,
+        precoPromocional: emPromocao ? precoPromoNum : null,
+      });
+    } catch (err) {
+      setError(err.message || "Não foi possível salvar.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div
+      className="card"
+      style={{
+        background: C.card,
+        borderRadius: 16,
+        padding: 16,
+        border: `1px solid ${ativo ? C.line : C.danger}`,
+        opacity: ativo ? 1 : 0.6,
+        display: "grid",
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div
+          style={{
+            width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center",
+            background: (catInfo?.color || C.sage) + "22", flex: "0 0 auto",
+          }}
+        >
+          <Icon size={16} color={catInfo?.color || C.sage} />
+        </div>
+        <input value={nome} onChange={(e) => setNome(e.target.value)} style={{ ...rowInputStyle, flex: 1, fontWeight: 600 }} />
+        <button
+          type="button"
+          className="chip"
+          onClick={() => setAtivo((a) => !a)}
+          style={{
+            flex: "0 0 auto", padding: "6px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+            background: ativo ? "rgba(127,163,150,.16)" : "rgba(248,113,113,.14)",
+            color: ativo ? C.success : C.danger, border: "none",
+          }}
+        >
+          {ativo ? "Ativo" : "Inativo"}
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>
+        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={rowInputStyle}>
+          {CATEGORIAS_SERVICO.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+        <select value={proPadraoId} onChange={(e) => setProPadraoId(e.target.value)} style={rowInputStyle}>
+          <option value="">Sem profissional padrão</option>
+          {profissionais.map((p) => (
+            <option key={p.id} value={p.id}>{p.nome}</option>
+          ))}
+        </select>
+        <input
+          value={duracao}
+          onChange={(e) => setDuracao(e.target.value)}
+          inputMode="numeric"
+          placeholder="Duração (min)"
+          style={rowInputStyle}
+        />
+        <div style={{ position: "relative" }}>
+          {rowPrefixRS}
+          <input
+            value={precoBase}
+            onChange={(e) => setPrecoBase(e.target.value)}
+            inputMode="decimal"
+            placeholder="0,00"
+            style={{ ...rowInputStyle, paddingLeft: 33 }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          className="chip"
+          onClick={() => setEmPromocao((v) => !v)}
+          style={{
+            padding: "7px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+            background: emPromocao ? "rgba(224,168,96,.18)" : "transparent",
+            color: emPromocao ? C.gold : C.muted, border: `1px solid ${emPromocao ? C.gold : C.line}`,
+          }}
+        >
+          🔥 Em promoção
+        </button>
+        {emPromocao && (
+          <div style={{ position: "relative" }}>
+            {rowPrefixRS}
+            <input
+              value={precoPromocional}
+              onChange={(e) => setPrecoPromocional(e.target.value)}
+              inputMode="decimal"
+              placeholder="Preço promocional"
+              style={{ ...rowInputStyle, paddingLeft: 33, width: 160 }}
+            />
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={salvar}
+          disabled={salvando}
+          className="btn-primary"
+          style={{ marginLeft: "auto", padding: "8px 20px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}
+        >
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      {error && <div style={{ color: C.danger, fontSize: 12 }}>{error}</div>}
+    </div>
+  );
+}
+
+// Formulário compacto para cadastrar um serviço novo direto na aba
+// Gestão → Serviços (sem precisar passar pelo fluxo de venda de pacote).
+function NovoServicoForm({ profissionais, onCreate, onClose }) {
+  const [nome, setNome] = useState("");
+  const [categoria, setCategoria] = useState(CATEGORIAS_SERVICO[0].value);
+  const [duracao, setDuracao] = useState("60");
+  const [preco, setPreco] = useState("");
+  const [proPadraoId, setProPadraoId] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [error, setError] = useState("");
+
+  const criar = async () => {
+    setError("");
+    const precoNum = Number(String(preco).replace(",", "."));
+    const duracaoNum = Number(duracao);
+    if (!nome.trim()) return setError("Informe o nome do serviço.");
+    if (!precoNum || precoNum <= 0) return setError("Informe um preço válido.");
+    if (!duracaoNum || duracaoNum <= 0) return setError("Informe uma duração válida.");
+
+    setSalvando(true);
+    try {
+      await onCreate({
+        nome: nome.trim(),
+        categoria,
+        duracao: duracaoNum,
+        precoBase: precoNum,
+        proPadraoId: proPadraoId || null,
+      });
+      setNome("");
+      setPreco("");
+    } catch (err) {
+      setError(err.message || "Não foi possível criar o serviço.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ background: C.card, borderRadius: 16, padding: 18, border: `1px solid ${C.gold}`, display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.gold }}>Novo Serviço</h4>
+        <button type="button" className="icon-btn" onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>
+          <X size={16} />
+        </button>
+      </div>
+      <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do serviço" style={rowInputStyle} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>
+        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={rowInputStyle}>
+          {CATEGORIAS_SERVICO.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+        <select value={proPadraoId} onChange={(e) => setProPadraoId(e.target.value)} style={rowInputStyle}>
+          <option value="">Sem profissional padrão</option>
+          {profissionais.map((p) => (
+            <option key={p.id} value={p.id}>{p.nome}</option>
+          ))}
+        </select>
+        <input value={duracao} onChange={(e) => setDuracao(e.target.value)} inputMode="numeric" placeholder="Duração (min)" style={rowInputStyle} />
+        <div style={{ position: "relative" }}>
+          {rowPrefixRS}
+          <input value={preco} onChange={(e) => setPreco(e.target.value)} inputMode="decimal" placeholder="0,00" style={{ ...rowInputStyle, paddingLeft: 33 }} />
+        </div>
+      </div>
+      {error && <div style={{ color: C.danger, fontSize: 12 }}>{error}</div>}
+      <button type="button" onClick={criar} disabled={salvando} className="btn-primary" style={{ padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, justifySelf: "start" }}>
+        {salvando ? "Criando..." : "Criar Serviço"}
+      </button>
+    </div>
+  );
+}
 
 function TabBtn({ active, onClick, icon, label, count }) {
   return (
