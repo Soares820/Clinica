@@ -4,7 +4,8 @@
   "private": true,
   "description": "Sistema de agendamento, loja e gestão da Pharus Estética & Spa",
   "scripts": {
-    "build": "esbuild entry.jsx --bundle --minify --format=iife --outfile=docs/bundle.js",
+    "config:from-env": "node scripts/gerar-config.js",
+    "build": "npm run config:from-env && esbuild entry.jsx --bundle --minify --format=iife --outfile=docs/bundle.js",
     "test": "vitest run"
   },
   "dependencies": {

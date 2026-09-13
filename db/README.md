@@ -73,6 +73,13 @@ nada.
    API no painel do Supabase).
 3. Rode `npm install && npm run build`.
 
+**Rodando numa sessão de Claude Code na nuvem (ou qualquer CI) sem
+acesso ao `db/config.js` local**: `npm run build` já roda
+`scripts/gerar-config.js` antes — se `db/config.js` não existir, ele
+gera o arquivo a partir das variáveis de ambiente `SUPABASE_URL` e
+`SUPABASE_ANON_KEY` (configure as duas no ambiente da sessão/CI). Se
+`db/config.js` já existir (caso normal, local), o script não faz nada.
+
 Se for publicar (Vercel/GitHub Pages), edite `vercel.json` e troque
 `https://SEU-PROJETO.supabase.co` no `Content-Security-Policy` pela URL
 real do seu projeto — sem isso o navegador bloqueia as chamadas ao
