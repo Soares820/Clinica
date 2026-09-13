@@ -1407,6 +1407,13 @@ export default function App() {
           .gestao-grid { grid-template-columns: 1.4fr 1fr; }
           .sidebar-card { position: sticky; top: 90px; }
         }
+
+        /* Abas da Gestão: lista scrollável no eixo X em telas estreitas —
+           esconde a barra de rolagem (a rolagem por toque continua
+           funcionando) em vez de mostrar a scrollbar grossa padrão do site
+           por cima do menu de abas. */
+        .gestao-tabs { -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .gestao-tabs::-webkit-scrollbar { display: none; height: 0; }
       `}</style>
       <AuroraBackdrop />
       <div style={{ position: "relative", zIndex: 1 }}>
@@ -1807,6 +1814,7 @@ function GestaoView({
   const [showNovoPacoteModal, setShowNovoPacoteModal] = useState(false);
   const [showNovoServicoForm, setShowNovoServicoForm] = useState(false);
   const [showNovoProfissionalForm, setShowNovoProfissionalForm] = useState(false);
+  const [showNovoClienteForm, setShowNovoClienteForm] = useState(false);
 
   // DRE CALCULADO EM TEMPO REAL (produtosVendidos vem de vendas reais
   // registradas pela loja — ver db/queries.js#listarItensVendidos)
@@ -1914,6 +1922,11 @@ function GestaoView({
   };
 
   // Clientes e pacotes
+  const handleCriarCliente = async (novo) => {
+    await db.criarCliente(novo);
+    setClientes(await db.listarClientes());
+  };
+
   const handleExcluirCliente = async (cliente) => {
     const pacotesDaCliente = clientesPacotes.filter((p) => p.clienteId === cliente.id);
     const aviso =
@@ -2088,9 +2101,10 @@ function GestaoView({
 
       {/* Navigation Sub-Tabs */}
       <div
+        className="gestao-tabs"
         style={{
           display: "flex",
-          gap: 6,
+          gap: 4,
           borderBottom: `1px solid ${C.line}`,
           marginBottom: 24,
           overflowX: "auto",
@@ -2698,6 +2712,16 @@ function GestaoView({
             </button>
           </div>
 
+          {clientesPacotes.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 10px", color: C.muted }}>
+              <Package size={28} color={C.gold} style={{ marginBottom: 8 }} />
+              <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: C.ink }}>Nenhum pacote vendido ainda</p>
+              <p style={{ margin: "4px 0 0", fontSize: 13 }}>
+                Clique em "Vender Novo Pacote" para registrar a primeira venda.
+              </p>
+            </div>
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
             {clientesPacotes.map((pac) => {
               const saldo = calcularSaldoPacote(pac);
@@ -2999,14 +3023,41 @@ function GestaoView({
       {/* TAB CONTENT: CLIENTES */}
       {activeTab === "clientes" && (
         <div style={{ display: "grid", gap: 16 }}>
-          <div>
-            <h3 className="display" style={{ fontSize: 20, margin: "0 0 2px" }}>
-              Prontuário & Lista de Clientes
-            </h3>
-            <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>
-              Cadastro, histórico de atendimentos e pacotes vinculados
-            </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <h3 className="display" style={{ fontSize: 20, margin: "0 0 2px" }}>
+                Prontuário & Lista de Clientes
+              </h3>
+              <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>
+                Cadastro, histórico de atendimentos e pacotes vinculados
+              </p>
+            </div>
+            {!showNovoClienteForm && (
+              <button type="button" className="btn-primary" onClick={() => setShowNovoClienteForm(true)} style={{ padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                <Plus size={16} /> Novo Cliente
+              </button>
+            )}
           </div>
+
+          {showNovoClienteForm && (
+            <NovoClienteForm
+              onClose={() => setShowNovoClienteForm(false)}
+              onCreate={async (novo) => {
+                await handleCriarCliente(novo);
+                setShowNovoClienteForm(false);
+              }}
+            />
+          )}
+
+          {clientes.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 10px", color: C.muted }}>
+              <Users size={28} color={C.gold} style={{ marginBottom: 8 }} />
+              <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: C.ink }}>Nenhuma cliente cadastrada</p>
+              <p style={{ margin: "4px 0 0", fontSize: 13 }}>
+                Clique em "Novo Cliente" acima, ou cadastre automaticamente ao criar o primeiro agendamento.
+              </p>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
             {clientes.map((cli) => {
@@ -3188,6 +3239,16 @@ function GestaoView({
             />
           )}
 
+          {profissionais.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 10px", color: C.muted }}>
+              <UserCheck size={28} color={C.gold} style={{ marginBottom: 8 }} />
+              <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: C.ink }}>Nenhum colaborador cadastrado</p>
+              <p style={{ margin: "4px 0 0", fontSize: 13 }}>
+                Cadastre pelo menos uma profissional antes de divulgar a Área da Cliente — sem isso, o agendamento público não funciona.
+              </p>
+            </div>
+          )}
+
           <div style={{ display: "grid", gap: 10 }}>
             {profissionais.map((p) => (
               <ProfissionalRow
@@ -3362,7 +3423,23 @@ function ClienteView({ servicos, profissionais }) {
     };
   }, [selDate, selPro?.id]);
 
-  const conflict = !!(selService && selDate && selSlot && horariosOcupados.includes(selSlot));
+  // Não faz sentido oferecer um horário de hoje que já passou (ex: são
+  // 11h55 e o slot das 09:00 ainda aparecia selecionável). Só se aplica
+  // à data de hoje — dias futuros mostram todos os slots normalmente.
+  const ehHoje = selDate === DATES[0].key;
+  const agoraEmMinutos = new Date().getHours() * 60 + new Date().getMinutes();
+  const horarioJaPassou = (horario) => {
+    if (!ehHoje) return false;
+    const [h, m] = horario.split(":").map(Number);
+    return h * 60 + m <= agoraEmMinutos;
+  };
+
+  const conflict = !!(
+    selService &&
+    selDate &&
+    selSlot &&
+    (horariosOcupados.includes(selSlot) || horarioJaPassou(selSlot))
+  );
 
   const handleConfirmarAgendamentoCliente = async () => {
     if (enviando) return; // trava duplo clique/duplo submit
@@ -3570,7 +3647,10 @@ function ClienteView({ servicos, profissionais }) {
                     <button
                       key={d.key}
                       className="chip"
-                      onClick={() => setSelDate(d.key)}
+                      onClick={() => {
+                        setSelDate(d.key);
+                        setSelSlot(null);
+                      }}
                       style={{
                         flex: "0 0 auto",
                         minWidth: 52,
@@ -3590,10 +3670,13 @@ function ClienteView({ servicos, profissionais }) {
 
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Escolha o horário:</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {SLOTS.map((t) => (
+                  {SLOTS.map((t) => {
+                    const passou = horarioJaPassou(t);
+                    return (
                     <button
                       key={t}
                       className="chip"
+                      disabled={passou}
                       onClick={() => setSelSlot(t)}
                       style={{
                         padding: "10px 0",
@@ -3603,11 +3686,14 @@ function ClienteView({ servicos, profissionais }) {
                         background: selSlot === t ? C.aubergine : "rgba(255,255,255,.07)",
                         color: selSlot === t ? "#fff" : C.ink,
                         border: `1px solid ${selSlot === t ? C.aubergine : C.line}`,
+                        opacity: passou ? 0.35 : 1,
+                        textDecoration: passou ? "line-through" : "none",
                       }}
                     >
                       {t}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {conflict && (
@@ -5373,6 +5459,57 @@ function NovoProfissionalForm({ onCreate, onClose }) {
   );
 }
 
+// Formulário compacto para cadastrar uma cliente nova direto na aba
+// Gestão → Clientes Cadastrados, sem precisar passar por um agendamento.
+function NovoClienteForm({ onCreate, onClose }) {
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [nascimento, setNascimento] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [error, setError] = useState("");
+
+  const criar = async () => {
+    setError("");
+    if (!nome.trim()) return setError("Informe o nome da cliente.");
+
+    setSalvando(true);
+    try {
+      await onCreate({
+        nome: nome.trim(),
+        telefone: telefone.trim() || null,
+        nascimento: nascimento || null,
+      });
+      setNome("");
+      setTelefone("");
+      setNascimento("");
+    } catch (err) {
+      setError(err.message || "Não foi possível cadastrar a cliente.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ background: C.card, borderRadius: 16, padding: 18, border: `1px solid ${C.gold}`, display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.gold }}>Novo Cliente</h4>
+        <button type="button" className="icon-btn" onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>
+          <X size={16} />
+        </button>
+      </div>
+      <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo" style={rowInputStyle} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>
+        <input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="WhatsApp (opcional)" style={rowInputStyle} />
+        <input type="date" value={nascimento} onChange={(e) => setNascimento(e.target.value)} style={rowInputStyle} />
+      </div>
+      {error && <div style={{ color: C.danger, fontSize: 12 }}>{error}</div>}
+      <button type="button" onClick={criar} disabled={salvando} className="btn-primary" style={{ padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, justifySelf: "start" }}>
+        {salvando ? "Cadastrando..." : "Cadastrar Cliente"}
+      </button>
+    </div>
+  );
+}
+
 function NavTabButton({ active, onClick, icon, label, count }) {
   return (
     <button
@@ -5381,12 +5518,13 @@ function NavTabButton({ active, onClick, icon, label, count }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 6,
-        padding: "8px 14px",
+        gap: 5,
+        padding: "8px 10px",
         borderRadius: 10,
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: 600,
         whiteSpace: "nowrap",
+        flex: "0 0 auto",
         background: active ? C.aubergine : "transparent",
         color: active ? "#fff" : C.muted,
         border: `1px solid ${active ? C.aubergine : "transparent"}`,

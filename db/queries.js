@@ -376,8 +376,24 @@ export async function excluirProfissional(id) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Mutações — clientes e pacotes (excluir)
+// Mutações — clientes e pacotes
 // ─────────────────────────────────────────────────────────────
+export async function criarCliente(cli) {
+  const row = unwrap(
+    await supabase
+      .from("clientes")
+      .insert({
+        nome: cli.nome,
+        nascimento: cli.nascimento || null,
+        telefone: cli.telefone || null,
+      })
+      .select()
+      .single()
+  );
+  return mapCliente(row);
+}
+
+// 23503 = foreign_key_violation: cliente com agendamentos no
 // 23503 = foreign_key_violation: cliente com agendamentos no
 // histórico não pode ser excluída (agendamentos.cliente_id é ON
 // DELETE RESTRICT). clientes_pacotes.cliente_id já é ON DELETE
