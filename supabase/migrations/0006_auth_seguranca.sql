@@ -94,11 +94,17 @@ create trigger trg_agendamentos_bloquear_alteracao_financeira
 --    deixa estoque negativo. Um INSERT direto em venda_itens
 --    contornava essa checagem por completo.
 -- ─────────────────────────────────────────────────────────────
+-- Precisa dropar os dois nomes (o antigo "staff vendas" de 0003 E o
+-- novo "staff select vendas" criado aqui) para a migration continuar
+-- idempotente — rodar duas vezes sem isso falha com "policy already
+-- exists" na segunda vez, porque CREATE POLICY não aceita IF NOT EXISTS.
 drop policy if exists "staff vendas" on vendas;
+drop policy if exists "staff select vendas" on vendas;
 create policy "staff select vendas" on vendas
   for select using (is_staff());
 
 drop policy if exists "staff venda_itens" on venda_itens;
+drop policy if exists "staff select venda_itens" on venda_itens;
 create policy "staff select venda_itens" on venda_itens
   for select using (is_staff());
 
