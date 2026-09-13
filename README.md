@@ -1,10 +1,10 @@
 # Studio Aura
 
-Sistema de agendamento, loja e gestão para o estúdio de beleza e bem-estar Studio Aura.
+Sistema de agendamento e gestão para o estúdio de beleza e bem-estar Studio Aura.
 
 ## Funcionalidades
 
-- **Área da cliente**: escolha de serviço, pagamento (Pix/Cartão) e agendamento por data e horário; loja de produtos com carrinho.
+- **Área da cliente**: escolha de serviço e agendamento por data e horário (pagamento é feito pessoalmente na clínica).
 - **Gestão**: acesso restrito por login, painel do dia (agenda, caixa, estoque baixo), criação manual de agendamentos e registro de recebimentos.
 
 Layout responsivo, adaptado para uso em celular.
@@ -26,4 +26,6 @@ Depois abra `docs/index.html` num servidor estático local (por exemplo `npx ser
 
 ## Aviso
 
-O login da área de Gestão usa uma credencial fixa no front-end (não há back-end/autenticação real). Antes de usar em produção com dados reais, substitua por um serviço de autenticação de verdade.
+O login da área de Gestão usa Supabase Auth de verdade (`db/auth.js`, `supabase.auth.signInWithPassword`) — não é mais credencial fixa no front-end. A proteção real dos dados é feita pelas RLS policies do banco (`is_staff()`, ver `supabase/migrations/`), não pela tela.
+
+Antes de publicar isto em produção com dados reais de clientes, siga o checklist de `db/README.md` (seção 3) e o `GO_LIVE_AUDIT_REPORT.md` na raiz do repositório — a correção só tem efeito depois que as migrations forem aplicadas no projeto Supabase real e o primeiro usuário de staff for criado; até lá, ter os arquivos no repositório não protege nada.

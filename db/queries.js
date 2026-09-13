@@ -12,6 +12,26 @@ function unwrap({ data, error }) {
   return data;
 }
 
+// O PostgREST do Supabase aplica um limite implícito de 1000 linhas por
+// requisição — sem paginação, listagens que passam disso voltam
+// truncadas SEM erro (DRE/comissões silenciosamente errados a partir
+// desse volume). Busca em páginas de 1000 até a página vir incompleta.
+const PAGE_SIZE = 1000;
+
+async function fetchAllRows(buildQuery) {
+  let linhas = [];
+  let offset = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1);
+    if (error) throw error;
+    linhas = linhas.concat(data);
+    if (data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return linhas;
+}
+
 const trimHorario = (t) => (typeof t === "string" ? t.slice(0, 5) : t);
 
 const formatPeriodo = (inicio, fim) => {
@@ -115,14 +135,6 @@ const mapRepasse = (r) => ({
   status: r.status,
 });
 
-const mapProduto = (r) => ({
-  id: r.id,
-  nome: r.nome,
-  preco: Number(r.preco),
-  estoque: r.estoque,
-  categoria: r.categoria,
-});
-
 // ─────────────────────────────────────────────────────────────
 // Listagens
 // ─────────────────────────────────────────────────────────────
@@ -148,15 +160,13 @@ export async function listarModelosPacote() {
 }
 
 export async function listarClientes() {
-  const data = unwrap(
-    await supabase.from("clientes").select("*").order("nome")
-  );
+  const data = await fetchAllRows(() => supabase.from("clientes").select("*").order("nome"));
   return data.map(mapCliente);
 }
 
 export async function listarClientesPacotes() {
-  const data = unwrap(
-    await supabase
+  const data = await fetchAllRows(() =>
+    supabase
       .from("clientes_pacotes")
       .select("*, cliente:clientes(nome), servico:servicos(nome)")
       .order("data_compra", { ascending: false })
@@ -165,8 +175,8 @@ export async function listarClientesPacotes() {
 }
 
 export async function listarAgendamentos() {
-  const data = unwrap(
-    await supabase
+  const data = await fetchAllRows(() =>
+    supabase
       .from("agendamentos")
       .select(
         "*, cliente:clientes(id,nome), servico:servicos(id,nome), profissional:profissionais(id,nome)"
@@ -178,15 +188,15 @@ export async function listarAgendamentos() {
 }
 
 export async function listarDespesas() {
-  const data = unwrap(
-    await supabase.from("despesas").select("*").order("data", { ascending: false })
+  const data = await fetchAllRows(() =>
+    supabase.from("despesas").select("*").order("data", { ascending: false })
   );
   return data.map(mapDespesa);
 }
 
 export async function listarRepassesComissao() {
-  const data = unwrap(
-    await supabase
+  const data = await fetchAllRows(() =>
+    supabase
       .from("repasses_comissao")
       .select("*, profissional:profissionais(nome)")
       .order("periodo_inicio", { ascending: false })
@@ -194,60 +204,64 @@ export async function listarRepassesComissao() {
   return data.map(mapRepasse);
 }
 
-export async function listarProdutos() {
-  const data = unwrap(
-    await supabase.from("produtos").select("*").order("nome")
-  );
-  return data.map(mapProduto);
-}
-
 // Itens de venda no formato que calcularDRE() já espera para
 // produtosVendidos ({ preco, q }) — substitui o array hardcoded que
 // existia antes de a loja persistir vendas de verdade.
 export async function listarItensVendidos() {
-  const data = unwrap(
-    await supabase.from("venda_itens").select("quantidade, preco_unitario")
+  const data = await fetchAllRows(() =>
+    supabase.from("venda_itens").select("quantidade, preco_unitario")
   );
   return data.map((r) => ({ preco: Number(r.preco_unitario), q: r.quantidade }));
 }
 
-// Carrega tudo em paralelo — usado uma vez no mount de App().
-export async function carregarTudo() {
-  const [
-    profissionais,
-    servicos,
-    modelosPacote,
-    clientes,
-    clientesPacotes,
-    agendamentos,
-    despesas,
-    repassesComissao,
-    produtos,
-    produtosVendidos,
-  ] = await Promise.all([
+// Horários já ocupados (não cancelados) de um profissional num dia —
+// usado pela Área da Cliente (público, sem login) só para dar a dica
+// visual de "esse horário já está pego" ANTES de tentar confirmar.
+// Passa por uma RPC (0010_prevenir_sobreposicao_agendamentos.sql) em
+// vez de listarAgendamentos(): aquela função devolve nome de cliente,
+// serviço etc. de TODA a agenda, que exigiria acesso de staff — esta
+// RPC devolve só os horários de um profissional/dia, sem nenhum dado
+// de cliente, então pode ser pública com segurança.
+export async function listarHorariosOcupados(data, profissionalId) {
+  const rows = unwrap(
+    await supabase.rpc("horarios_ocupados_publico", {
+      p_data: data,
+      p_profissional_id: profissionalId,
+    })
+  );
+  return rows.map((r) => trimHorario(r.horario));
+}
+
+// Dados públicos (catálogo): necessários tanto para a Área da Cliente
+// quanto para a tela de Login/Painel de Gestão renderizar. Não inclui
+// nada sensível — RLS já permite leitura anônima destas três tabelas
+// (ver 0003_rls_policies.sql: "ativo = true or is_staff()").
+export async function carregarDadosPublicos() {
+  const [profissionais, servicos, modelosPacote] = await Promise.all([
     listarProfissionais(),
     listarServicos(),
     listarModelosPacote(),
-    listarClientes(),
-    listarClientesPacotes(),
-    listarAgendamentos(),
-    listarDespesas(),
-    listarRepassesComissao(),
-    listarProdutos(),
-    listarItensVendidos(),
   ]);
-  return {
-    profissionais,
-    servicos,
-    modelosPacote,
-    clientes,
-    clientesPacotes,
-    agendamentos,
-    despesas,
-    repassesComissao,
-    produtos,
-    produtosVendidos,
-  };
+  return { profissionais, servicos, modelosPacote };
+}
+
+// Dados só de Gestão (staff autenticado): clientes, agendamentos
+// completos (com nome de cliente), financeiro e comissões. Só deve ser
+// chamada depois de confirmar uma sessão válida — ver App() em
+// clinica-sistema.jsx. Antes da correção de A5, isto era buscado no
+// mount do app inteiro, incondicionalmente, e entregue de graça para
+// qualquer visitante anônimo da Área da Cliente.
+export async function carregarDadosGestao() {
+  const [clientes, clientesPacotes, agendamentos, despesas, repassesComissao, produtosVendidos] =
+    await Promise.all([
+      listarClientes(),
+      listarClientesPacotes(),
+      listarAgendamentos(),
+      listarDespesas(),
+      listarRepassesComissao(),
+      listarItensVendidos(),
+    ]);
+  return { clientes, clientesPacotes, agendamentos, despesas, repassesComissao, produtosVendidos };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -271,18 +285,29 @@ export async function criarAgendamentoGestao(novo) {
     clienteId = cliente.id;
   }
 
-  unwrap(
-    await supabase.from("agendamentos").insert({
-      data: novo.data,
-      horario: novo.horario,
-      cliente_id: clienteId,
-      servico_id: novo.servicoId,
-      profissional_id: novo.profissionalId,
-      status: novo.status || "confirmado",
-      tipo_pagamento: novo.tipoPagamento,
-      pacote_utilizado_id: novo.pacoteUtilizadoId || null,
-    })
-  );
+  const { error } = await supabase.from("agendamentos").insert({
+    data: novo.data,
+    horario: novo.horario,
+    cliente_id: clienteId,
+    servico_id: novo.servicoId,
+    profissional_id: novo.profissionalId,
+    status: novo.status || "confirmado",
+    tipo_pagamento: novo.tipoPagamento,
+    pacote_utilizado_id: novo.pacoteUtilizadoId || null,
+  });
+  if (error) {
+    // 23505 = unique_violation (conflito exato de horário, pré-0010);
+    // 23P01 = exclusion_violation (agendamentos_sem_sobreposicao,
+    // 0010_prevenir_sobreposicao_agendamentos.sql — cobre também
+    // sobreposição de serviços mais longos que o espaçamento dos
+    // slots). Mesmo conflito que criar_agendamento_publico() já
+    // traduz para o público; aqui era exposto cru — nome de
+    // constraint do Postgres — para quem usa a Gestão.
+    if (error.code === "23505" || error.code === "23P01") {
+      throw new Error("Esse profissional já tem um agendamento nesse horário.");
+    }
+    throw error;
+  }
 }
 
 export async function atualizarStatusAgendamento(agendamentoId, novoStatus) {
@@ -404,6 +429,10 @@ export async function criarModeloPacote(modelo) {
 // conflito de horário e estoque, e calculam preço/comissão no
 // servidor — nunca confiam no que o navegador mandar.
 // ─────────────────────────────────────────────────────────────
+// O agendamento público não coleta mais forma de pagamento (decisão de
+// negócio: a cliente paga pessoalmente na clínica) — sempre envia
+// 'pendente_pos_atendimento', o único valor que
+// criar_agendamento_publico() aceita a partir da migration 0009.
 export async function criarAgendamentoPublico({
   clienteNome,
   clienteTelefone,
@@ -411,7 +440,6 @@ export async function criarAgendamentoPublico({
   profissionalId,
   data,
   horario,
-  tipoPagamento,
 }) {
   const row = unwrap(
     await supabase.rpc("criar_agendamento_publico", {
@@ -421,20 +449,8 @@ export async function criarAgendamentoPublico({
       p_profissional_id: profissionalId,
       p_data: data,
       p_horario: horario,
-      p_tipo_pagamento: tipoPagamento,
+      p_tipo_pagamento: "pendente_pos_atendimento",
     })
   );
   return mapAgendamento(row);
-}
-
-export async function registrarVendaPublica({ clienteNome, clienteTelefone, formaPagamento, itens }) {
-  const row = unwrap(
-    await supabase.rpc("registrar_venda_publica", {
-      p_cliente_nome: clienteNome || "",
-      p_cliente_telefone: clienteTelefone || "",
-      p_forma_pagamento: formaPagamento || "",
-      p_itens: itens.map((i) => ({ produto_id: i.produtoId, quantidade: i.quantidade })),
-    })
-  );
-  return row;
 }

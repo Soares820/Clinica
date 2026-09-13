@@ -1,20 +1,16 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Calendar,
-  ShoppingBag,
   Wallet,
   Clock,
   Check,
   Plus,
-  Minus,
   X,
   TrendingUp,
   Users,
   Flower2,
   Eye,
   Hand,
-  CreditCard,
-  QrCode,
   DollarSign,
   Percent,
   Package,
@@ -28,9 +24,13 @@ import {
   Phone,
   Receipt,
   UserCheck,
-  ChevronRight
+  ChevronRight,
+  Lock,
+  LogOut,
+  EyeOff
 } from "lucide-react";
 import * as db from "./db/queries.js";
+import * as auth from "./db/auth.js";
 
 // ─────────────────────────────────────────────────────────────
 // 1. MODELOS DE DADOS & TIPAGENS (JSDoc)
@@ -785,14 +785,6 @@ export const MOCK_REPASSES_COMISSAO = [
   },
 ];
 
-export const MOCK_PRODUTOS = [
-  { id: 1, nome: "Óleo de Massagem Lavanda & Alecrim", preco: 68, estoque: 12, categoria: "Corpo" },
-  { id: 2, nome: "Sérum Fortalecedor & Nutritivo de Cílios", preco: 95, estoque: 8, categoria: "Cílios" },
-  { id: 3, nome: "Kit Home Care Escova + Espuma Micelar", preco: 54, estoque: 20, categoria: "Home Care" },
-  { id: 4, nome: "Vela Aromática Calmante Baunilha & Bergamota", preco: 42, estoque: 15, categoria: "Aromaterapia" },
-  { id: 5, nome: "Sérum Facial Antioxidante Vitamina C 15%", preco: 110, estoque: 6, categoria: "Facial" },
-];
-
 // ─────────────────────────────────────────────────────────────
 // 4. FUNÇÕES UTILITÁRIAS DE CÁLCULO
 // ─────────────────────────────────────────────────────────────
@@ -1097,26 +1089,59 @@ export default function App() {
   const [agendamentos, setAgendamentos] = useState([]);
   const [despesas, setDespesas] = useState([]);
   const [repassesComissao, setRepassesComissao] = useState([]);
-  const [produtos, setProdutos] = useState([]);
   const [produtosVendidos, setProdutosVendidos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState("");
 
+  // Sessão da Gestão (Supabase Auth). Independente do carregamento dos
+  // dados públicos acima — a Área da Cliente nunca fica bloqueada
+  // esperando isso resolver.
+  const [sessao, setSessao] = useState(null);
+  const [verificandoSessao, setVerificandoSessao] = useState(true);
+
+  // Dados sensíveis de Gestão (clientes, agendamentos com nome de
+  // cliente, financeiro, comissões) — carregados só depois de uma
+  // sessão válida, nunca no mount incondicional do App. Ver A5 em
+  // GO_LIVE_AUDIT_REPORT.md: antes desta correção, qualquer visitante
+  // anônimo da Área da Cliente recebia esses dados de graça, porque a
+  // mesma chamada rodava pra todo mundo, sessão ou não.
+  const [carregandoGestao, setCarregandoGestao] = useState(false);
+  const [erroCarregamentoGestao, setErroCarregamentoGestao] = useState("");
+  const [gestaoReloadKey, setGestaoReloadKey] = useState(0);
+
   useEffect(() => {
     let cancelado = false;
-    db.carregarTudo()
+    auth
+      .obterSessaoAtual()
+      .then((s) => {
+        if (!cancelado) setSessao(s);
+      })
+      .finally(() => {
+        if (!cancelado) setVerificandoSessao(false);
+      });
+    // Mantém a sessão em sincronia: login/logout em outra aba, token
+    // renovado automaticamente, ou sessão expirada (o supabase-js
+    // dispara "SIGNED_OUT" quando o refresh token falha/expira).
+    const cancelarInscricao = auth.aoMudarAutenticacao((s) => {
+      if (!cancelado) setSessao(s);
+    });
+    return () => {
+      cancelado = true;
+      cancelarInscricao();
+    };
+  }, []);
+
+  // Catálogo público (profissionais, serviços, modelos de pacote): RLS
+  // já permite leitura anônima destas três tabelas, então este efeito
+  // roda sempre, independente de mode/sessão.
+  useEffect(() => {
+    let cancelado = false;
+    db.carregarDadosPublicos()
       .then((dados) => {
         if (cancelado) return;
-        setClientes(dados.clientes);
         setProfissionais(dados.profissionais);
         setServicos(dados.servicos);
         setModelosPacote(dados.modelosPacote);
-        setClientesPacotes(dados.clientesPacotes);
-        setAgendamentos(dados.agendamentos);
-        setDespesas(dados.despesas);
-        setRepassesComissao(dados.repassesComissao);
-        setProdutos(dados.produtos);
-        setProdutosVendidos(dados.produtosVendidos);
       })
       .catch((err) => {
         if (!cancelado) setErroCarregamento(err.message || "Não foi possível carregar os dados.");
@@ -1129,7 +1154,56 @@ export default function App() {
     };
   }, []);
 
-  if (carregando) {
+  // Dados de Gestão: só busca depois de confirmar uma sessão válida.
+  // Ao deslogar, limpa tudo de volta — nenhum dado sensível deve
+  // continuar em memória depois do "Sair".
+  useEffect(() => {
+    if (!sessao) {
+      setClientes([]);
+      setClientesPacotes([]);
+      setAgendamentos([]);
+      setDespesas([]);
+      setRepassesComissao([]);
+      setProdutosVendidos([]);
+      setErroCarregamentoGestao("");
+      setCarregandoGestao(false);
+      return;
+    }
+
+    let cancelado = false;
+    setCarregandoGestao(true);
+    setErroCarregamentoGestao("");
+    db.carregarDadosGestao()
+      .then((dados) => {
+        if (cancelado) return;
+        setClientes(dados.clientes);
+        setClientesPacotes(dados.clientesPacotes);
+        setAgendamentos(dados.agendamentos);
+        setDespesas(dados.despesas);
+        setRepassesComissao(dados.repassesComissao);
+        setProdutosVendidos(dados.produtosVendidos);
+      })
+      .catch((err) => {
+        if (!cancelado)
+          setErroCarregamentoGestao(err.message || "Não foi possível carregar os dados da Gestão.");
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoGestao(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [sessao, gestaoReloadKey]);
+
+  // O catálogo público (serviços, profissionais, agenda etc.) só é
+  // necessário para montar a Área da Cliente ou o Painel de Gestão já
+  // autenticado — nunca para a checagem de sessão nem para a tela de
+  // Login. Sem este guard, uma falha/demora no carregamento do
+  // catálogo travava a Gestão inteira ATÉ na tela de Login, mesmo ela
+  // não dependendo desses dados.
+  const precisaDadosPublicos = mode === "cliente" || (mode === "gestao" && !!sessao);
+
+  if (precisaDadosPublicos && carregando) {
     return (
       <div style={{ background: "transparent", minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
         <style>{`
@@ -1189,7 +1263,7 @@ export default function App() {
     );
   }
 
-  if (erroCarregamento) {
+  if (precisaDadosPublicos && erroCarregamento) {
     return (
       <div style={{ background: "transparent", minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", padding: 24, color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
         <AuroraBackdrop />
@@ -1314,18 +1388,15 @@ export default function App() {
           0%, 100% { opacity: .5; }
           50% { opacity: .75; }
         }
+        @keyframes loaderSpin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) {
           .aurora-blob, .aurora-field { animation: none !important; opacity: .4 !important; }
         }
 
         .two-col { grid-template-columns: 1fr; }
-        .produtos-grid { grid-template-columns: 1fr; }
         .kpi-grid { grid-template-columns: repeat(2,1fr); }
         .gestao-grid { grid-template-columns: 1fr; }
         .sidebar-card { position: static; }
-        @media (min-width: 480px) {
-          .produtos-grid { grid-template-columns: 1fr 1fr; }
-        }
         @media (min-width: 760px) {
           .kpi-grid { grid-template-columns: repeat(4,1fr); }
         }
@@ -1387,16 +1458,17 @@ export default function App() {
 
       {/* Main View Router */}
       {mode === "cliente" ? (
-        <ClienteView
-          servicos={servicos}
-          profissionais={profissionais}
-          agendamentos={agendamentos}
-          setAgendamentos={setAgendamentos}
-          produtos={produtos}
-          setProdutos={setProdutos}
-          setProdutosVendidos={setProdutosVendidos}
-          clientesPacotes={clientesPacotes}
-          setClientesPacotes={setClientesPacotes}
+        <ClienteView servicos={servicos} profissionais={profissionais} />
+      ) : verificandoSessao ? (
+        <SessaoCarregando />
+      ) : !sessao ? (
+        <Login onEntrar={setSessao} />
+      ) : carregandoGestao ? (
+        <GestaoCarregando />
+      ) : erroCarregamentoGestao ? (
+        <GestaoErro
+          mensagem={erroCarregamentoGestao}
+          onRetry={() => setGestaoReloadKey((k) => k + 1)}
         />
       ) : (
         <GestaoView
@@ -1416,11 +1488,285 @@ export default function App() {
           setDespesas={setDespesas}
           repassesComissao={repassesComissao}
           setRepassesComissao={setRepassesComissao}
-          produtos={produtos}
-          setProdutos={setProdutos}
           produtosVendidos={produtosVendidos}
+          usuarioEmail={sessao.user?.email}
+          onLogout={async () => {
+            try {
+              await auth.sair();
+            } catch {
+              // signOut falhar (ex: offline) não deve travar o usuário na
+              // Gestão — limpa a sessão local mesmo assim; o token some do
+              // localStorage e a próxima chamada autenticada já falha.
+            } finally {
+              setSessao(null);
+            }
+          }}
         />
       )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// LOGIN — acesso à Gestão (Supabase Auth)
+// ─────────────────────────────────────────────────────────────
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function SessaoCarregando() {
+  return (
+    <div style={{ display: "grid", placeItems: "center", padding: "18vh 24px" }}>
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: "50%",
+          border: `2.5px solid ${C.line}`,
+          borderTopColor: C.gold,
+          animation: "loaderSpin 0.9s linear infinite",
+        }}
+      />
+    </div>
+  );
+}
+
+function GestaoCarregando() {
+  return (
+    <div style={{ display: "grid", placeItems: "center", padding: "18vh 24px", gap: 14 }}>
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: "50%",
+          border: `2.5px solid ${C.line}`,
+          borderTopColor: C.gold,
+          animation: "loaderSpin 0.9s linear infinite",
+        }}
+      />
+      <span style={{ color: C.muted, fontSize: 13 }}>Carregando dados da Gestão…</span>
+    </div>
+  );
+}
+
+function GestaoErro({ mensagem, onRetry }) {
+  return (
+    <div style={{ display: "grid", placeItems: "center", padding: "14vh 24px" }}>
+      <div
+        className="card"
+        style={{
+          background: C.card, border: `1px solid ${C.line}`, borderRadius: 20,
+          padding: 32, maxWidth: 420, width: "100%", textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 52, height: 52, borderRadius: "50%", background: "rgba(248,113,113,.16)",
+            display: "grid", placeItems: "center", margin: "0 auto 16px",
+          }}
+        >
+          <AlertCircle size={24} color={C.danger} />
+        </div>
+        <h2 className="display" style={{ fontSize: 19, margin: "0 0 8px" }}>Não foi possível carregar a Gestão</h2>
+        <p style={{ color: C.muted, fontSize: 14, margin: "0 0 22px", lineHeight: 1.5 }}>{mensagem}</p>
+        <button
+          className="btn-primary"
+          onClick={onRetry}
+          style={{ padding: "11px 22px", borderRadius: 10, fontWeight: 600, fontSize: 14 }}
+        >
+          Tentar novamente
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Login({ onEntrar }) {
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [erroCampo, setErroCampo] = useState({});
+
+  const inputStyle = {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 10,
+    border: `1px solid ${C.line}`,
+    fontSize: 14,
+    outline: "none",
+    background: "#081714",
+    color: C.ink,
+  };
+
+  const validar = () => {
+    const campos = {};
+    const valorEmail = email.trim();
+    if (!valorEmail) campos.email = "Informe seu e-mail.";
+    else if (!EMAIL_REGEX.test(valorEmail)) campos.email = "Informe um e-mail válido.";
+    if (!senha) campos.senha = "Informe sua senha.";
+    setErroCampo(campos);
+    return Object.keys(campos).length === 0;
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (carregando) return; // trava duplo clique/duplo submit
+    setErro("");
+    if (!validar()) return;
+
+    setCarregando(true);
+    try {
+      const sessao = await auth.entrar(email.trim(), senha);
+      onEntrar(sessao);
+    } catch (err) {
+      setErro(auth.mensagemAmigavelDeErroDeLogin(err));
+      setCarregando(false);
+    }
+    // Em caso de sucesso não precisa dar setCarregando(false): o
+    // componente desmonta assim que onEntrar troca a tela pra Gestão.
+  };
+
+  return (
+    <div style={{ maxWidth: 400, margin: "8vh auto 0", padding: "0 clamp(16px,4vw,24px) 60px" }}>
+      <div className="card" style={{ background: C.card, borderRadius: 20, padding: "32px 28px", border: `1px solid ${C.line}` }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            background: C.aubergine,
+            display: "grid",
+            placeItems: "center",
+            margin: "0 auto 18px",
+            boxShadow: `0 4px 14px -2px ${C.aubergine}`,
+          }}
+        >
+          <Lock size={20} color={C.gold} />
+        </div>
+        <h2 className="display" style={{ fontSize: 22, fontWeight: 600, textAlign: "center", margin: "0 0 4px", color: C.ink }}>
+          Acesso à Gestão
+        </h2>
+        <p style={{ color: C.muted, fontSize: 13, textAlign: "center", margin: "0 0 26px", lineHeight: 1.5 }}>
+          Entre com seu e-mail e senha para gerenciar o Studio Pharus.
+        </p>
+
+        <form onSubmit={submit} noValidate>
+          <label htmlFor="login-email" style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 6 }}>
+            E-mail
+          </label>
+          <input
+            id="login-email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (erroCampo.email) setErroCampo((c) => ({ ...c, email: undefined }));
+            }}
+            type="email"
+            autoComplete="username"
+            placeholder="seu@email.com"
+            disabled={carregando}
+            aria-invalid={Boolean(erroCampo.email)}
+            style={{ ...inputStyle, borderColor: erroCampo.email ? C.danger : C.line }}
+          />
+          {erroCampo.email && (
+            <p style={{ color: C.danger, fontSize: 12, margin: "6px 0 0" }}>{erroCampo.email}</p>
+          )}
+
+          <label htmlFor="login-senha" style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.muted, margin: "16px 0 6px" }}>
+            Senha
+          </label>
+          <div style={{ position: "relative" }}>
+            <input
+              id="login-senha"
+              value={senha}
+              onChange={(e) => {
+                setSenha(e.target.value);
+                if (erroCampo.senha) setErroCampo((c) => ({ ...c, senha: undefined }));
+              }}
+              type={mostrarSenha ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="Sua senha"
+              disabled={carregando}
+              aria-invalid={Boolean(erroCampo.senha)}
+              style={{ ...inputStyle, paddingRight: 42, borderColor: erroCampo.senha ? C.danger : C.line }}
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarSenha((v) => !v)}
+              aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+              tabIndex={-1}
+              style={{
+                position: "absolute",
+                right: 4,
+                top: "50%",
+                transform: "translateY(-50%)",
+                padding: 8,
+                borderRadius: 8,
+                display: "grid",
+                placeItems: "center",
+                color: C.muted,
+              }}
+            >
+              {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {erroCampo.senha && (
+            <p style={{ color: C.danger, fontSize: 12, margin: "6px 0 0" }}>{erroCampo.senha}</p>
+          )}
+
+          {erro && (
+            <div
+              role="alert"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                background: "rgba(248,113,113,.12)",
+                border: `1px solid rgba(248,113,113,.35)`,
+                borderRadius: 10,
+                padding: "10px 12px",
+                marginTop: 16,
+              }}
+            >
+              <AlertCircle size={16} color={C.danger} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span style={{ color: C.ink, fontSize: 13, lineHeight: 1.4 }}>{erro}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={carregando}
+            style={{
+              width: "100%",
+              padding: 13,
+              borderRadius: 12,
+              fontWeight: 600,
+              fontSize: 15,
+              marginTop: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            {carregando && (
+              <span
+                style={{
+                  width: 15,
+                  height: 15,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,.4)",
+                  borderTopColor: "#fff",
+                  animation: "loaderSpin 0.7s linear infinite",
+                }}
+              />
+            )}
+            {carregando ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -1447,9 +1793,9 @@ function GestaoView({
   setDespesas,
   repassesComissao,
   setRepassesComissao,
-  produtos,
-  setProdutos,
   produtosVendidos,
+  usuarioEmail,
+  onLogout,
 }) {
   const [activeTab, setActiveTab] = useState("agenda"); // agenda | dre | pacotes | repasses | clientes
   const [selectedDate, setSelectedDate] = useState(DATES[0].key);
@@ -1632,6 +1978,22 @@ function GestaoView({
             }}
           >
             <Package size={16} /> Vender Pacote
+          </button>
+          <button
+            className="btn-ghost"
+            onClick={onLogout}
+            title={usuarioEmail ? `Sair (${usuarioEmail})` : "Sair"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "10px 16px",
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            <LogOut size={16} /> Sair
           </button>
         </div>
       </div>
@@ -2776,28 +3138,24 @@ function GestaoView({
 // 7. ÁREA DA CLIENTE (CLIENTE VIEW)
 // ─────────────────────────────────────────────────────────────
 
-function ClienteView({
-  servicos,
-  profissionais,
-  agendamentos,
-  setAgendamentos,
-  produtos,
-  setProdutos,
-  setProdutosVendidos,
-  clientesPacotes,
-  setClientesPacotes,
-}) {
-  const [tab, setTab] = useState("agendar"); // 'agendar' | 'loja'
+function ClienteView({ servicos, profissionais }) {
   const [selService, setSelService] = useState(null);
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
-  const [payMethod, setPayMethod] = useState("pix");
   const [selDate, setSelDate] = useState(null);
   const [selSlot, setSelSlot] = useState(null);
-  const [cart, setCart] = useState([]);
   const [confirmed, setConfirmed] = useState(null);
   const [bookingError, setBookingError] = useState("");
-  const [checkoutError, setCheckoutError] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  // Horários já ocupados do profissional selecionado, só pra dar a
+  // dica visual "esse horário já está pego" — busca escopada por
+  // data+profissional via RPC pública (db/queries.js#listarHorariosOcupados),
+  // nunca a agenda completa: a Área da Cliente não tem (nem deveria
+  // ter) acesso à lista de agendamentos com nome de outras clientes.
+  // A validação que de fato impede o conflito acontece no servidor,
+  // na hora de confirmar (ver A5/A4 em GO_LIVE_AUDIT_REPORT.md).
+  const [horariosOcupados, setHorariosOcupados] = useState([]);
 
   const selPro = profissionais.find((p) => p.id === selService?.proPadraoId) || profissionais[0];
 
@@ -2819,36 +3177,34 @@ function ClienteView({
     [servicosAtivos]
   );
 
-  const conflict = !!(
-    selService &&
-    selDate &&
-    selSlot &&
-    agendamentos.some(
-      (a) =>
-        a.status !== "cancelado" &&
-        a.data === selDate &&
-        a.horario === selSlot &&
-        a.profissionalId === selPro?.id
-    )
-  );
+  useEffect(() => {
+    if (!selDate || !selPro) {
+      setHorariosOcupados([]);
+      return;
+    }
+    let cancelado = false;
+    db.listarHorariosOcupados(selDate, selPro.id)
+      .then((horarios) => {
+        if (!cancelado) setHorariosOcupados(horarios);
+      })
+      .catch(() => {
+        // Falha aqui não deve travar o agendamento — é só uma dica
+        // visual; a confirmação ainda é validada pelo servidor.
+        if (!cancelado) setHorariosOcupados([]);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [selDate, selPro?.id]);
 
-  const addCart = (p) =>
-    setCart((c) => {
-      const f = c.find((x) => x.id === p.id);
-      return f ? c.map((x) => (x.id === p.id ? { ...x, q: x.q + 1 } : x)) : [...c, { ...p, q: 1 }];
-    });
-
-  const decCart = (id) =>
-    setCart((c) =>
-      c.map((x) => (x.id === id ? { ...x, q: x.q - 1 } : x)).filter((x) => x.q > 0)
-    );
-
-  const cartTotal = cart.reduce((s, x) => s + x.preco * x.q, 0);
+  const conflict = !!(selService && selDate && selSlot && horariosOcupados.includes(selSlot));
 
   const handleConfirmarAgendamentoCliente = async () => {
+    if (enviando) return; // trava duplo clique/duplo submit
     if (!selService || !selDate || !selSlot || !clientName.trim() || !clientPhone.trim() || conflict) return;
 
     setBookingError("");
+    setEnviando(true);
     try {
       await db.criarAgendamentoPublico({
         clienteNome: clientName.trim(),
@@ -2857,20 +3213,21 @@ function ClienteView({
         profissionalId: selPro.id,
         data: selDate,
         horario: selSlot,
-        tipoPagamento: payMethod === "pix" ? "pago_pix" : "pago_cartao",
       });
-      setAgendamentos(await db.listarAgendamentos());
       setConfirmed({
-        type: "agenda",
         service: selService,
         date: selDate,
         slot: selSlot,
-        method: payMethod,
         clientName: clientName.trim(),
         proName: selPro.nome,
       });
+      setEnviando(false);
     } catch (err) {
       setBookingError(err.message || "Não foi possível confirmar o agendamento. Tente novamente.");
+      setEnviando(false);
+      // Recarrega a dica de horários ocupados — o erro pode ser
+      // justamente um conflito que surgiu entre a última busca e agora.
+      db.listarHorariosOcupados(selDate, selPro.id).then(setHorariosOcupados).catch(() => {});
     }
   };
 
@@ -2924,25 +3281,7 @@ function ClienteView({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
-        <TabBtn
-          active={tab === "agendar"}
-          onClick={() => setTab("agendar")}
-          icon={<Calendar size={16} />}
-          label="Agendar Procedimento"
-        />
-        <TabBtn
-          active={tab === "loja"}
-          onClick={() => setTab("loja")}
-          icon={<ShoppingBag size={16} />}
-          label="Loja Home Care"
-          count={cart.reduce((s, x) => s + x.q, 0)}
-        />
-      </div>
-
-      {tab === "agendar" && (
-        <div className="two-col" style={{ display: "grid", gap: 24, alignItems: "start" }}>
+      <div className="two-col" style={{ display: "grid", gap: 24, alignItems: "start" }}>
           {/* Lista de Serviços */}
           <div style={{ display: "grid", gap: 28 }}>
             {servicosPromocao.length > 0 && (
@@ -3111,37 +3450,9 @@ function ClienteView({
                   <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>{bookingError}</p>
                 )}
 
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Forma de pagamento:</div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-                  {["pix", "cartao"].map((m) => (
-                    <button
-                      key={m}
-                      className="chip"
-                      onClick={() => setPayMethod(m)}
-                      style={{
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        padding: "10px 0",
-                        borderRadius: 10,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        background: payMethod === m ? C.aubergine : "rgba(255,255,255,.07)",
-                        color: payMethod === m ? "#fff" : C.ink,
-                        border: `1px solid ${payMethod === m ? C.aubergine : C.line}`,
-                      }}
-                    >
-                      {m === "pix" ? <QrCode size={15} /> : <CreditCard size={15} />}
-                      {m === "pix" ? "Pix" : "Cartão"}
-                    </button>
-                  ))}
-                </div>
-
                 <button
                   className="btn-primary"
-                  disabled={!clientName.trim() || !clientPhone.trim() || !selDate || !selSlot || conflict}
+                  disabled={!clientName.trim() || !clientPhone.trim() || !selDate || !selSlot || conflict || enviando}
                   onClick={handleConfirmarAgendamentoCliente}
                   style={{
                     width: "100%",
@@ -3151,174 +3462,12 @@ function ClienteView({
                     fontSize: 15,
                   }}
                 >
-                  Confirmar Agendamento ({brl(precoEfetivo(selService))})
+                  {enviando ? "Confirmando..." : `Confirmar Agendamento (${brl(precoEfetivo(selService))})`}
                 </button>
               </>
             )}
           </div>
         </div>
-      )}
-
-      {tab === "loja" && (
-        <div className="two-col" style={{ display: "grid", gap: 24, alignItems: "start" }}>
-          <div className="produtos-grid" style={{ display: "grid", gap: 14 }}>
-            {produtos.map((p) => (
-              <div
-                key={p.id}
-                className="lift card"
-                style={{
-                  background: C.card,
-                  borderRadius: 16,
-                  padding: 18,
-                  border: `1px solid ${C.line}`,
-                }}
-              >
-                <div
-                  style={{
-                    height: 90,
-                    borderRadius: 12,
-                    background: "linear-gradient(135deg,#F0E6DA,#E8D9CC)",
-                    marginBottom: 14,
-                    display: "grid",
-                    placeItems: "center",
-                  }}
-                >
-                  <ShoppingBag size={26} color={C.gold} />
-                </div>
-                <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.25 }}>{p.nome}</div>
-                <div style={{ color: C.muted, fontSize: 12, margin: "4px 0 12px" }}>
-                  {p.estoque} em estoque · {p.categoria}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span className="display" style={{ fontSize: 18, fontWeight: 600 }}>
-                    {brl(p.preco)}
-                  </span>
-                  <button
-                    className="icon-btn"
-                    onClick={() => addCart(p)}
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 10,
-                      background: C.aubergine,
-                      color: "#fff",
-                      display: "grid",
-                      placeItems: "center",
-                      boxShadow: "0 3px 8px rgba(15,61,52,.28)",
-                    }}
-                  >
-                    <Plus size={18} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Carrinho */}
-          <div
-            className="sidebar-card card"
-            style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}
-          >
-            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Seu carrinho</div>
-            {cart.length === 0 ? (
-              <p style={{ color: C.muted, fontSize: 14 }}>Adicione produtos para continuar.</p>
-            ) : (
-              <>
-                {cart.map((x) => (
-                  <div
-                    key={x.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div style={{ fontSize: 13, maxWidth: 150 }}>{x.nome}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button
-                        className="icon-btn"
-                        onClick={() => decCart(x.id)}
-                        style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: 7,
-                          background: "rgba(255,255,255,.07)",
-                          display: "grid",
-                          placeItems: "center",
-                        }}
-                      >
-                        <Minus size={13} />
-                      </button>
-                      <span style={{ fontSize: 14, fontWeight: 600, minWidth: 16, textAlign: "center" }}>
-                        {x.q}
-                      </span>
-                      <button
-                        className="icon-btn"
-                        onClick={() => addCart(x)}
-                        style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: 7,
-                          background: "rgba(255,255,255,.07)",
-                          display: "grid",
-                          placeItems: "center",
-                        }}
-                      >
-                        <Plus size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <div
-                  style={{
-                    borderTop: `1px solid ${C.line}`,
-                    margin: "14px 0",
-                    paddingTop: 14,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontWeight: 600,
-                  }}
-                >
-                  <span>Total</span>
-                  <span className="display" style={{ fontSize: 18 }}>
-                    {brl(cartTotal)}
-                  </span>
-                </div>
-                {checkoutError && (
-                  <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>{checkoutError}</p>
-                )}
-                <button
-                  className="btn-primary"
-                  onClick={async () => {
-                    setCheckoutError("");
-                    try {
-                      await db.registrarVendaPublica({
-                        clienteNome: clientName,
-                        clienteTelefone: clientPhone,
-                        formaPagamento: payMethod,
-                        itens: cart.map((x) => ({ produtoId: x.id, quantidade: x.q })),
-                      });
-                      const [novosProdutos, novosItensVendidos] = await Promise.all([
-                        db.listarProdutos(),
-                        db.listarItensVendidos(),
-                      ]);
-                      setProdutos(novosProdutos);
-                      setProdutosVendidos(novosItensVendidos);
-                      setConfirmed({ type: "compra", total: cartTotal });
-                    } catch (err) {
-                      setCheckoutError(err.message || "Não foi possível concluir a compra. Tente novamente.");
-                    }
-                  }}
-                  style={{ width: "100%", padding: 14, borderRadius: 12, fontWeight: 600 }}
-                >
-                  Pagar com Pix / Cartão
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
       {confirmed && (
         <ConfirmModal
@@ -3328,7 +3477,6 @@ function ClienteView({
             setSelService(null);
             setSelDate(null);
             setSelSlot(null);
-            setCart([]);
           }}
         />
       )}
@@ -3353,6 +3501,7 @@ function NovoAgendamentoModal({
   const [clienteId, setClienteId] = useState(clientes[0]?.id || "");
   const [novoClienteNome, setNovoClienteNome] = useState("");
   const [novoClienteTelefone, setNovoClienteTelefone] = useState("");
+  const [salvando, setSalvando] = useState(false);
 
   const [servicoId, setServicoId] = useState(servicos[0]?.id || "");
   const [profissionalId, setProfissionalId] = useState(profissionais[0]?.id || "");
@@ -3384,8 +3533,9 @@ function NovoAgendamentoModal({
     )
   );
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    if (salvando) return; // trava duplo clique/duplo submit
     if (conflict) return;
     if (tipoPagamento === "pacote_sessao" && !pacSel) return;
 
@@ -3412,26 +3562,31 @@ function NovoAgendamentoModal({
       pacoteUtilizado: pacSel,
     });
 
-    onSave({
-      id: `age-${Date.now()}`,
-      data: date,
-      horario: time,
-      clienteId: clienteTipo === "existente" ? clienteId : `cli-${Date.now()}`,
-      clienteNome: clienteNomeFinal,
-      clienteTelefone: clienteTipo === "novo" ? novoClienteTelefone.trim() : undefined,
-      servicoId: servicoSel.id,
-      servicoNome: servicoSel.nome,
-      profissionalId: proSel.id,
-      profissionalNome: proSel.nome,
-      status: "confirmado",
-      tipoPagamento,
-      pacoteUtilizadoId: tipoPagamento === "pacote_sessao" ? pacSel?.id : null,
-      sessaoNumero,
-      valorCobrado,
-      comissaoCalculada: comissao,
-      comissaoPaga: false,
-      dataBaixaComissao: null,
-    });
+    setSalvando(true);
+    try {
+      await onSave({
+        id: `age-${Date.now()}`,
+        data: date,
+        horario: time,
+        clienteId: clienteTipo === "existente" ? clienteId : `cli-${Date.now()}`,
+        clienteNome: clienteNomeFinal,
+        clienteTelefone: clienteTipo === "novo" ? novoClienteTelefone.trim() : undefined,
+        servicoId: servicoSel.id,
+        servicoNome: servicoSel.nome,
+        profissionalId: proSel.id,
+        profissionalNome: proSel.nome,
+        status: "confirmado",
+        tipoPagamento,
+        pacoteUtilizadoId: tipoPagamento === "pacote_sessao" ? pacSel?.id : null,
+        sessaoNumero,
+        valorCobrado,
+        comissaoCalculada: comissao,
+        comissaoPaga: false,
+        dataBaixaComissao: null,
+      });
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const inputStyle = {
@@ -3680,7 +3835,8 @@ function NovoAgendamentoModal({
             disabled={
               conflict ||
               (tipoPagamento === "pacote_sessao" && !pacSel) ||
-              (clienteTipo === "novo" && !novoClienteTelefone.trim())
+              (clienteTipo === "novo" && !novoClienteTelefone.trim()) ||
+              salvando
             }
             style={{
               width: "100%",
@@ -3691,7 +3847,7 @@ function NovoAgendamentoModal({
               marginTop: 10,
             }}
           >
-            Agendar Atendimento
+            {salvando ? "Agendando..." : "Agendar Atendimento"}
           </button>
         </form>
       </div>
@@ -3714,26 +3870,33 @@ function NovaDespesaModal({ onClose, onSave }) {
   const [data, setData] = useState(new Date().toISOString().split("T")[0]);
   const [comprovanteRef, setComprovanteRef] = useState("");
   const [error, setError] = useState("");
+  const [salvando, setSalvando] = useState(false);
 
   const catSel = CATEGORIAS_DESPESA.find((c) => c.value === categoria);
   const CatIcon = catSel?.icon || FileText;
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    if (salvando) return; // trava duplo clique/duplo submit
     const v = Number(String(valor).replace(",", "."));
     if (!descricao.trim()) return setError("Preencha a descrição da despesa.");
     if (!v || v <= 0) return setError("Informe um valor válido, maior que zero.");
     if (!data) return setError("Informe a data da despesa.");
 
     setError("");
-    onSave({
-      id: `desp-${Date.now()}`,
-      descricao: descricao.trim(),
-      categoria,
-      valor: v,
-      data,
-      comprovanteRef: comprovanteRef.trim() || `COMP-${Date.now().toString().slice(-4)}`,
-    });
+    setSalvando(true);
+    try {
+      await onSave({
+        id: `desp-${Date.now()}`,
+        descricao: descricao.trim(),
+        categoria,
+        valor: v,
+        data,
+        comprovanteRef: comprovanteRef.trim() || `COMP-${Date.now().toString().slice(-4)}`,
+      });
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const inputStyle = {
@@ -3876,6 +4039,7 @@ function NovaDespesaModal({ onClose, onSave }) {
           <button
             type="submit"
             className="btn-primary"
+            disabled={salvando}
             style={{
               width: "100%",
               padding: 13,
@@ -3885,7 +4049,7 @@ function NovaDespesaModal({ onClose, onSave }) {
               marginTop: 8,
             }}
           >
-            Registrar Saída Financeira
+            {salvando ? "Registrando..." : "Registrar Saída Financeira"}
           </button>
         </form>
       </div>
@@ -3912,6 +4076,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
 
   const [agendarAgora, setAgendarAgora] = useState(false);
   const [profissionalId, setProfissionalId] = useState(profissionais[0]?.id || "");
+  const [salvando, setSalvando] = useState(false);
   const [date, setDate] = useState(DATES[0].key);
   const [time, setTime] = useState(SLOTS[0]);
 
@@ -3944,6 +4109,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
     novoNome.trim() && novoServicoValido && Number(novoTotalSessoes) > 0 && Number(novoPrecoTotal) > 0;
 
   const podeSubmeter =
+    !salvando &&
     !!cliSel &&
     (modeloTipo === "existente" ? !!modSel : novoModeloValido) &&
     (!agendarAgora || (!!profissionalId && !conflict));
@@ -3962,35 +4128,40 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
               ? "Escolha outro horário — o profissional já tem atendimento nesse dia e horário."
               : "";
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!podeSubmeter) return;
 
-    onSave({
-      cliente: cliSel,
-      modeloExistente: modeloTipo === "existente" ? modSel : null,
-      novoServico:
-        modeloTipo === "novo" && servicoTipo === "novo"
-          ? {
-              nome: novoServicoNome.trim(),
-              categoria: novoServicoCategoria,
-              duracao: Number(novoServicoDuracao),
-              precoBase: Number(novoServicoPreco),
-              proPadraoId: novoServicoProId || null,
-            }
-          : null,
-      novoModelo:
-        modeloTipo === "novo"
-          ? {
-              nome: novoNome.trim(),
-              servicoId: servicoTipo === "existente" ? novoServicoId : null,
-              totalSessoes: Number(novoTotalSessoes),
-              precoTotal: Number(novoPrecoTotal),
-              validadeDias: Number(novoValidadeDias),
-            }
-          : null,
-      agendamento: agendarAgora ? { profissionalId, date, time } : null,
-    });
+    setSalvando(true);
+    try {
+      await onSave({
+        cliente: cliSel,
+        modeloExistente: modeloTipo === "existente" ? modSel : null,
+        novoServico:
+          modeloTipo === "novo" && servicoTipo === "novo"
+            ? {
+                nome: novoServicoNome.trim(),
+                categoria: novoServicoCategoria,
+                duracao: Number(novoServicoDuracao),
+                precoBase: Number(novoServicoPreco),
+                proPadraoId: novoServicoProId || null,
+              }
+            : null,
+        novoModelo:
+          modeloTipo === "novo"
+            ? {
+                nome: novoNome.trim(),
+                servicoId: servicoTipo === "existente" ? novoServicoId : null,
+                totalSessoes: Number(novoTotalSessoes),
+                precoTotal: Number(novoPrecoTotal),
+                validadeDias: Number(novoValidadeDias),
+              }
+            : null,
+        agendamento: agendarAgora ? { profissionalId, date, time } : null,
+      });
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const inputStyle = {
@@ -4430,7 +4601,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
               marginTop: 8,
             }}
           >
-            Confirmar Venda do Pacote
+            {salvando ? "Confirmando..." : "Confirmar Venda do Pacote"}
           </button>
         </form>
       </div>
@@ -4496,32 +4667,18 @@ function ConfirmModal({ data, onClose }) {
         >
           <Check size={30} color={C.sage} />
         </div>
-        {data.type === "agenda" ? (
-          <>
-            <h3 className="display" style={{ fontSize: 24, margin: "0 0 8px" }}>
-              Agendado!
-            </h3>
-            <p style={{ color: C.muted, fontSize: 14, margin: 0 }}>
-              Olá, <strong>{data.clientName}</strong>! Seu horário para{" "}
-              <strong>{data.service?.nome || data.service?.name}</strong> com{" "}
-              <strong>{data.proName}</strong> foi confirmado para{" "}
-              <strong>
-                {DATES.find((d) => d.key === data.date)?.display || data.date} às {data.slot}
-              </strong>
-              .
-            </p>
-          </>
-        ) : (
-          <>
-            <h3 className="display" style={{ fontSize: 24, margin: "0 0 8px" }}>
-              Pedido Confirmado!
-            </h3>
-            <p style={{ color: C.muted, fontSize: 14, margin: 0 }}>
-              Total de <strong>{brl(data.total)}</strong>. Retire na clínica ou combine a entrega com nossa
-              equipe via WhatsApp.
-            </p>
-          </>
-        )}
+        <h3 className="display" style={{ fontSize: 24, margin: "0 0 8px" }}>
+          Agendado!
+        </h3>
+        <p style={{ color: C.muted, fontSize: 14, margin: 0 }}>
+          Olá, <strong>{data.clientName}</strong>! Seu horário para{" "}
+          <strong>{data.service?.nome || data.service?.name}</strong> com{" "}
+          <strong>{data.proName}</strong> foi confirmado para{" "}
+          <strong>
+            {DATES.find((d) => d.key === data.date)?.display || data.date} às {data.slot}
+          </strong>
+          .
+        </p>
       </div>
     </div>
   );
@@ -4860,45 +5017,6 @@ function NovoServicoForm({ profissionais, onCreate, onClose }) {
         {salvando ? "Criando..." : "Criar Serviço"}
       </button>
     </div>
-  );
-}
-
-function TabBtn({ active, onClick, icon, label, count }) {
-  return (
-    <button
-      className="chip"
-      onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "10px 18px",
-        borderRadius: 12,
-        fontSize: 14,
-        fontWeight: 600,
-        background: active ? C.aubergine : C.card,
-        color: active ? "#fff" : C.ink,
-        border: `1px solid ${active ? C.aubergine : C.line}`,
-        boxShadow: active ? "0 4px 12px rgba(15,61,52,.25)" : undefined,
-      }}
-    >
-      {icon}
-      {label}
-      {count > 0 && (
-        <span
-          style={{
-            background: C.gold,
-            color: "#fff",
-            borderRadius: 20,
-            padding: "1px 7px",
-            fontSize: 11,
-            fontWeight: 700,
-          }}
-        >
-          {count}
-        </span>
-      )}
-    </button>
   );
 }
 
