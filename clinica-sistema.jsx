@@ -1082,7 +1082,27 @@ export function calcularExtratoComissoes({ agendamentos = [], profissionais = []
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────
 export default function App() {
-  const [mode, setMode] = useState("cliente");
+  // Lembra em qual área a pessoa estava (Cliente/Gestão) entre reloads —
+  // sem isso, dar F5 na Gestão (ex: pra forçar atualizar os dados)
+  // jogava a pessoa de volta pra Área da Cliente, obrigando reabrir o
+  // painel e logar de novo a cada atualização de página.
+  const [mode, setMode] = useState(() => {
+    try {
+      const salvo = localStorage.getItem("pharus_mode");
+      return salvo === "gestao" ? "gestao" : "cliente";
+    } catch {
+      return "cliente";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("pharus_mode", mode);
+    } catch {
+      // localStorage indisponível (modo privado restrito etc.) — não é
+      // crítico, só perde a conveniência de lembrar a área entre reloads.
+    }
+  }, [mode]);
   const [clientes, setClientes] = useState([]);
   const [profissionais, setProfissionais] = useState([]);
   const [servicos, setServicos] = useState([]);
@@ -1206,63 +1226,7 @@ export default function App() {
   const precisaDadosPublicos = mode === "cliente" || (mode === "gestao" && !!sessao);
 
   if (precisaDadosPublicos && carregando) {
-    return (
-      <div style={{ background: "transparent", minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
-        <style>{`
-          @keyframes loaderPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 26px -4px ${C.aubergine}; } 50% { transform: scale(1.07); box-shadow: 0 0 42px 0px ${C.aubergine}; } }
-          @keyframes loaderSpin { to { transform: rotate(360deg); } }
-          @keyframes loaderDot { 0%, 80%, 100% { transform: scale(0.55); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
-          @media (prefers-reduced-motion: reduce) {
-            .loader-spin, .loader-pulse, .loader-dot { animation: none !important; }
-          }
-        `}</style>
-        <AuroraBackdrop />
-        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
-          <div style={{ position: "relative", width: 76, height: 76, display: "grid", placeItems: "center" }}>
-            <div
-              className="loader-spin"
-              style={{
-                position: "absolute", inset: 0, borderRadius: "50%",
-                border: `2.5px solid rgba(255,255,255,.12)`, borderTopColor: C.aubergine,
-                animation: "loaderSpin 0.9s linear infinite",
-              }}
-            />
-            <div
-              className="loader-pulse"
-              style={{
-                width: 54, height: 54, borderRadius: "50%", overflow: "hidden",
-                display: "grid", placeItems: "center", animation: "loaderPulse 2.2s ease-in-out infinite",
-              }}
-            >
-              <img src="./logo-pharus.png" alt="Pharus" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            </div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div className="display" style={{ fontSize: 22, fontWeight: 600, marginBottom: 4, letterSpacing: "0.02em" }}>
-              PHARUS
-            </div>
-            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.22em", color: C.muted, marginBottom: 10 }}>
-              ESTÉTICA &amp; SPA
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, justifyContent: "center" }}>
-              <span style={{ color: C.muted, fontSize: 13 }}>Carregando seus dados</span>
-              <span style={{ display: "flex", gap: 3 }}>
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="loader-dot"
-                    style={{
-                      width: 4, height: 4, borderRadius: "50%", background: C.gold,
-                      animation: `loaderDot 1.4s ease-in-out ${i * 0.16}s infinite`,
-                    }}
-                  />
-                ))}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <PharusLoader texto="Carregando seus dados" fullPage />;
   }
 
   if (precisaDadosPublicos && erroCarregamento) {
@@ -1523,6 +1487,78 @@ export default function App() {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Loader animado da marca (logo pulsando + anel girando + "Carregando…").
+// Reutilizado em todo carregamento de dados do app — o carregamento
+// inicial (público) e o da Gestão (pós-login) usam o MESMO visual, em
+// vez de um spinner genérico diferente em cada lugar.
+function PharusLoader({ texto = "Carregando seus dados", fullPage = false }) {
+  const conteudo = (
+    <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
+      <style>{`
+        @keyframes loaderPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 26px -4px ${C.aubergine}; } 50% { transform: scale(1.07); box-shadow: 0 0 42px 0px ${C.aubergine}; } }
+        @keyframes loaderSpin { to { transform: rotate(360deg); } }
+        @keyframes loaderDot { 0%, 80%, 100% { transform: scale(0.55); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) {
+          .loader-spin, .loader-pulse, .loader-dot { animation: none !important; }
+        }
+      `}</style>
+      <div style={{ position: "relative", width: 76, height: 76, display: "grid", placeItems: "center" }}>
+        <div
+          className="loader-spin"
+          style={{
+            position: "absolute", inset: 0, borderRadius: "50%",
+            border: `2.5px solid rgba(255,255,255,.12)`, borderTopColor: C.aubergine,
+            animation: "loaderSpin 0.9s linear infinite",
+          }}
+        />
+        <div
+          className="loader-pulse"
+          style={{
+            width: 54, height: 54, borderRadius: "50%", overflow: "hidden",
+            display: "grid", placeItems: "center", animation: "loaderPulse 2.2s ease-in-out infinite",
+          }}
+        >
+          <img src="./logo-pharus.png" alt="Pharus" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+      </div>
+      <div style={{ textAlign: "center" }}>
+        <div className="display" style={{ fontSize: 22, fontWeight: 600, marginBottom: 4, letterSpacing: "0.02em" }}>
+          PHARUS
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.22em", color: C.muted, marginBottom: 10 }}>
+          ESTÉTICA &amp; SPA
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, justifyContent: "center" }}>
+          <span style={{ color: C.muted, fontSize: 13 }}>{texto}</span>
+          <span style={{ display: "flex", gap: 3 }}>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="loader-dot"
+                style={{
+                  width: 4, height: 4, borderRadius: "50%", background: C.gold,
+                  animation: `loaderDot 1.4s ease-in-out ${i * 0.16}s infinite`,
+                }}
+              />
+            ))}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!fullPage) {
+    return <div style={{ display: "grid", placeItems: "center", padding: "14vh 24px" }}>{conteudo}</div>;
+  }
+
+  return (
+    <div style={{ background: "transparent", minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center", color: C.ink, fontFamily: "'DM Sans', sans-serif" }}>
+      <AuroraBackdrop />
+      {conteudo}
+    </div>
+  );
+}
+
 function SessaoCarregando() {
   return (
     <div style={{ display: "grid", placeItems: "center", padding: "18vh 24px" }}>
@@ -1541,21 +1577,7 @@ function SessaoCarregando() {
 }
 
 function GestaoCarregando() {
-  return (
-    <div style={{ display: "grid", placeItems: "center", padding: "18vh 24px", gap: 14 }}>
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          border: `2.5px solid ${C.line}`,
-          borderTopColor: C.gold,
-          animation: "loaderSpin 0.9s linear infinite",
-        }}
-      />
-      <span style={{ color: C.muted, fontSize: 13 }}>Carregando dados da Gestão…</span>
-    </div>
-  );
+  return <PharusLoader texto="Carregando dados da Gestão" />;
 }
 
 function GestaoErro({ mensagem, onRetry }) {
@@ -3374,6 +3396,20 @@ function ClienteView({ servicos, profissionais }) {
   const [bookingError, setBookingError] = useState("");
   const [enviando, setEnviando] = useState(false);
 
+  // No mobile (uma coluna só), o card de agendamento vem DEPOIS da
+  // lista inteira de serviços no HTML — sem isto, escolher um serviço
+  // não leva a cliente pra onde ela precisa continuar, e ela tem que
+  // adivinhar que precisa rolar a tela pra baixo. `block: "nearest"`
+  // não faz nada se o card já estiver visível (ex: desktop, onde o
+  // layout de 2 colunas já mostra os dois lado a lado).
+  const sidebarRef = useRef(null);
+  const selecionarServico = (s) => {
+    setSelService(s);
+    setSelDate(null);
+    setSelSlot(null);
+    sidebarRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
   // Horários já ocupados do profissional selecionado, só pra dar a
   // dica visual "esse horário já está pego" — busca escopada por
   // data+profissional via RPC pública (db/queries.js#listarHorariosOcupados),
@@ -3541,11 +3577,7 @@ function ClienteView({ servicos, profissionais }) {
                       servico={s}
                       profissional={s.proPadraoId ? profissionais.find((p) => p.id === s.proPadraoId) : null}
                       selected={selService?.id === s.id}
-                      onSelect={() => {
-                        setSelService(s);
-                        setSelDate(null);
-                        setSelSlot(null);
-                      }}
+                      onSelect={() => selecionarServico(s)}
                     />
                   ))}
                 </div>
@@ -3564,11 +3596,7 @@ function ClienteView({ servicos, profissionais }) {
                       servico={s}
                       profissional={s.proPadraoId ? profissionais.find((p) => p.id === s.proPadraoId) : null}
                       selected={selService?.id === s.id}
-                      onSelect={() => {
-                        setSelService(s);
-                        setSelDate(null);
-                        setSelSlot(null);
-                      }}
+                      onSelect={() => selecionarServico(s)}
                     />
                   ))}
                 </div>
@@ -3578,8 +3606,9 @@ function ClienteView({ servicos, profissionais }) {
 
           {/* Sidebar Agendamento */}
           <div
+            ref={sidebarRef}
             className="sidebar-card card"
-            style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}` }}
+            style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}`, scrollMarginTop: 80 }}
           >
             {!selService ? (
               <div style={{ textAlign: "center", padding: "30px 10px", color: C.muted }}>

@@ -20,3 +20,11 @@ if (typeof window !== "undefined") {
   window.requestAnimationFrame = window.requestAnimationFrame || (() => 0);
   window.cancelAnimationFrame = window.cancelAnimationFrame || (() => {});
 }
+
+// App() lembra em qual área (Cliente/Gestão) a pessoa estava via
+// localStorage (persiste entre reloads). Sem limpar isso entre testes,
+// um teste que clica em "Painel de Gestão" deixa esse valor gravado no
+// jsdom e o próximo teste do arquivo já monta <App /> direto na Gestão.
+afterEach(() => {
+  localStorage.clear();
+});
