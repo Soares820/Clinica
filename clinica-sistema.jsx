@@ -3543,9 +3543,38 @@ function ClienteView({ servicos, profissionais }) {
     (horariosDoPrimeiroProfissional.includes(selSlot) || horarioJaPassou(selSlot))
   );
 
+  // Sem nenhum profissional cadastrado, cada serviço do carrinho não
+  // tem pra quem ir (profissionais.find(...) || profissionais[0] vira
+  // undefined) — sem essa checagem, confirmar quebraria com um erro
+  // técnico em vez de uma mensagem clara. Cenário real: o dono do
+  // sistema pode rodar supabase/limpeza_dados_demo.sql (que apaga
+  // profissionais) antes de cadastrar a primeira profissional de
+  // verdade na aba Colaboradores.
+  const semProfissionalDisponivel = profissionais.length === 0;
+
+  // Se a soma das durações a partir do horário escolhido passar da
+  // meia-noite, o cálculo de somarMinutos "dá a volta" e devolveria um
+  // horário de madrugada só que ainda gravado na MESMA data — bloqueia
+  // em vez de criar um agendamento com data/horário errados.
+  const minutosTotaisDoCarrinho = carrinho.reduce((soma, s) => soma + (Number(s.duracao) || 0), 0);
+  const ultrapassaMeiaNoite = (() => {
+    if (!selSlot) return false;
+    const [h, m] = selSlot.split(":").map(Number);
+    return h * 60 + m + minutosTotaisDoCarrinho > 24 * 60;
+  })();
+
   const handleConfirmarAgendamentoCliente = async () => {
     if (enviando) return; // trava duplo clique/duplo submit
-    if (carrinho.length === 0 || !selDate || !selSlot || !clientName.trim() || !clientPhone.trim() || conflict) {
+    if (
+      carrinho.length === 0 ||
+      !selDate ||
+      !selSlot ||
+      !clientName.trim() ||
+      !clientPhone.trim() ||
+      conflict ||
+      semProfissionalDisponivel ||
+      ultrapassaMeiaNoite
+    ) {
       return;
     }
 
@@ -3920,13 +3949,33 @@ function ClienteView({ servicos, profissionais }) {
                 Horário indisponível para {primeiroItem?.profissional?.nome}. Por favor, selecione outro horário.
               </p>
             )}
+            {!conflict && ultrapassaMeiaNoite && (
+              <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>
+                Esses serviços juntos não cabem no mesmo dia a partir desse horário. Escolha um horário mais cedo ou remova algum serviço do carrinho.
+              </p>
+            )}
+            {semProfissionalDisponivel && (
+              <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>
+                Nenhuma profissional cadastrada no momento — não é possível confirmar agendamentos.
+              </p>
+            )}
             {bookingError && (
               <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>{bookingError}</p>
             )}
 
             <button
               className="btn-primary"
-              disabled={carrinho.length === 0 || !clientName.trim() || !clientPhone.trim() || !selDate || !selSlot || conflict || enviando}
+              disabled={
+                carrinho.length === 0 ||
+                !clientName.trim() ||
+                !clientPhone.trim() ||
+                !selDate ||
+                !selSlot ||
+                conflict ||
+                semProfissionalDisponivel ||
+                ultrapassaMeiaNoite ||
+                enviando
+              }
               onClick={handleConfirmarAgendamentoCliente}
               style={{
                 width: "100%",
