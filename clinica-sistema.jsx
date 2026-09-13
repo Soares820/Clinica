@@ -332,7 +332,45 @@ export function buildDates(n = 7) {
   return out;
 }
 export const DATES = buildDates(7);
-export const SLOTS = ["09:00", "10:30", "13:00", "14:30", "16:00", "17:30"];
+
+// Horário de funcionamento: segunda a sexta das 10h às 20h30, sábado
+// das 9h às 18h, domingo fechado (sem horários disponíveis).
+export const HORARIO_FUNCIONAMENTO = {
+  semana: { abertura: "10:00", fechamento: "20:30" }, // segunda(1) a sexta(5)
+  sabado: { abertura: "09:00", fechamento: "18:00" }, // sábado(6)
+};
+
+function gerarSlots(abertura, fechamento, passoMinutos = 90) {
+  const [hAbre, mAbre] = abertura.split(":").map(Number);
+  const [hFecha, mFecha] = fechamento.split(":").map(Number);
+  const fimMinutos = hFecha * 60 + mFecha;
+  const slots = [];
+  for (let minutos = hAbre * 60 + mAbre; minutos < fimMinutos; minutos += passoMinutos) {
+    const h = String(Math.floor(minutos / 60)).padStart(2, "0");
+    const m = String(minutos % 60).padStart(2, "0");
+    slots.push(`${h}:${m}`);
+  }
+  return slots;
+}
+
+// Devolve os horários de início disponíveis para uma data (string
+// YYYY-MM-DD), de acordo com o horário de funcionamento acima.
+// Domingo devolve [] (clínica fechada).
+export function getSlotsPorData(dataKey) {
+  if (!dataKey) return [];
+  const [y, m, d] = dataKey.split("-").map(Number);
+  const diaSemana = new Date(y, m - 1, d).getDay(); // 0 = domingo, 6 = sábado
+  if (diaSemana === 0) return [];
+  if (diaSemana === 6) {
+    return gerarSlots(HORARIO_FUNCIONAMENTO.sabado.abertura, HORARIO_FUNCIONAMENTO.sabado.fechamento);
+  }
+  return gerarSlots(HORARIO_FUNCIONAMENTO.semana.abertura, HORARIO_FUNCIONAMENTO.semana.fechamento);
+}
+
+// Mantido para compatibilidade com quem ainda espera uma lista fixa
+// (ex: estado inicial antes de uma data ser escolhida) — reflete os
+// horários de um dia de semana comum.
+export const SLOTS = gerarSlots(HORARIO_FUNCIONAMENTO.semana.abertura, HORARIO_FUNCIONAMENTO.semana.fechamento);
 
 // ─────────────────────────────────────────────────────────────
 // 3. CONSTANTES DE MOCK INICIAIS REALISTAS
@@ -3522,7 +3560,7 @@ function ClienteView({ servicos, profissionais }) {
   }, [modalAberto, carrinho.length]);
 
   // Não faz sentido oferecer um horário de hoje que já passou (ex: são
-  // 11h55 e o slot das 09:00 ainda aparecia selecionável). Só se aplica
+  // 11h55 e o slot das 10h00 ainda aparecia selecionável). Só se aplica
   // à data de hoje — dias futuros mostram todos os slots normalmente.
   const ehHoje = selDate === DATES[0].key;
   const agoraEmMinutos = new Date().getHours() * 60 + new Date().getMinutes();
@@ -3531,6 +3569,10 @@ function ClienteView({ servicos, profissionais }) {
     const [h, m] = horario.split(":").map(Number);
     return h * 60 + m <= agoraEmMinutos;
   };
+
+  // Horários de início disponíveis para a data escolhida — varia por
+  // dia da semana (ver getSlotsPorData) e vem vazio aos domingos.
+  const slotsDoDia = useMemo(() => getSlotsPorData(selDate), [selDate]);
 
   const primeiroItem = sequenciaAgendamentos[0];
   const horariosDoPrimeiroProfissional = primeiroItem
@@ -3917,32 +3959,38 @@ function ClienteView({ servicos, profissionais }) {
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>
               Escolha o horário de início{carrinho.length > 1 ? " (os demais serviços seguem em sequência)" : ""}:
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-              {SLOTS.map((t) => {
-                const passou = horarioJaPassou(t);
-                return (
-                  <button
-                    key={t}
-                    className="chip"
-                    disabled={passou}
-                    onClick={() => setSelSlot(t)}
-                    style={{
-                      padding: "10px 0",
-                      borderRadius: 10,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      background: selSlot === t ? C.aubergine : "rgba(255,255,255,.07)",
-                      color: selSlot === t ? "#fff" : C.ink,
-                      border: `1px solid ${selSlot === t ? C.aubergine : C.line}`,
-                      opacity: passou ? 0.35 : 1,
-                      textDecoration: passou ? "line-through" : "none",
-                    }}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
+            {slotsDoDia.length === 0 ? (
+              <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px" }}>
+                A clínica não funciona aos domingos. Por favor, escolha outra data.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                {slotsDoDia.map((t) => {
+                  const passou = horarioJaPassou(t);
+                  return (
+                    <button
+                      key={t}
+                      className="chip"
+                      disabled={passou}
+                      onClick={() => setSelSlot(t)}
+                      style={{
+                        padding: "10px 0",
+                        borderRadius: 10,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        background: selSlot === t ? C.aubergine : "rgba(255,255,255,.07)",
+                        color: selSlot === t ? "#fff" : C.ink,
+                        border: `1px solid ${selSlot === t ? C.aubergine : C.line}`,
+                        opacity: passou ? 0.35 : 1,
+                        textDecoration: passou ? "line-through" : "none",
+                      }}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {conflict && (
               <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>
@@ -4030,6 +4078,16 @@ function NovoAgendamentoModal({
   const [time, setTime] = useState(SLOTS[0]);
   const [tipoPagamento, setTipoPagamento] = useState("pago_pix");
   const [pacoteUtilizadoId, setPacoteUtilizadoId] = useState("");
+
+  // Horários disponíveis para a data escolhida (vazio aos domingos —
+  // clínica fechada). Se a data mudar e o horário selecionado deixar
+  // de valer para o novo dia, ajusta pro primeiro horário válido.
+  const slotsDoDia = useMemo(() => getSlotsPorData(date), [date]);
+  useEffect(() => {
+    if (slotsDoDia.length > 0 && !slotsDoDia.includes(time)) {
+      setTime(slotsDoDia[0]);
+    }
+  }, [slotsDoDia]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pacotes ativos da cliente selecionada
   const pacotesDisponiveis = useMemo(() => {
@@ -4291,8 +4349,8 @@ function NovoAgendamentoModal({
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Horário:</label>
-              <select value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle}>
-                {SLOTS.map((t) => (
+              <select value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle} disabled={slotsDoDia.length === 0}>
+                {slotsDoDia.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
@@ -4300,6 +4358,12 @@ function NovoAgendamentoModal({
               </select>
             </div>
           </div>
+
+          {slotsDoDia.length === 0 && (
+            <p style={{ color: C.danger, fontSize: 12, margin: 0 }}>
+              A clínica não funciona aos domingos. Escolha outra data.
+            </p>
+          )}
 
           {/* Tipo de Pagamento */}
           <div style={{ display: "grid", gap: 6 }}>
@@ -4355,6 +4419,7 @@ function NovoAgendamentoModal({
             className="btn-primary"
             disabled={
               conflict ||
+              slotsDoDia.length === 0 ||
               (tipoPagamento === "pacote_sessao" && !pacSel) ||
               (clienteTipo === "novo" && !novoClienteTelefone.trim()) ||
               salvando
@@ -4601,6 +4666,16 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
   const [date, setDate] = useState(DATES[0].key);
   const [time, setTime] = useState(SLOTS[0]);
 
+  // Horários disponíveis para a data escolhida (vazio aos domingos —
+  // clínica fechada). Se a data mudar e o horário selecionado deixar
+  // de valer para o novo dia, ajusta pro primeiro horário válido.
+  const slotsDoDia = useMemo(() => getSlotsPorData(date), [date]);
+  useEffect(() => {
+    if (slotsDoDia.length > 0 && !slotsDoDia.includes(time)) {
+      setTime(slotsDoDia[0]);
+    }
+  }, [slotsDoDia]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const modSel = modelosPacote.find((m) => m.id === modeloId);
   const cliSel = clientes.find((c) => c.id === clienteId);
 
@@ -4633,7 +4708,7 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
     !salvando &&
     !!cliSel &&
     (modeloTipo === "existente" ? !!modSel : novoModeloValido) &&
-    (!agendarAgora || (!!profissionalId && !conflict));
+    (!agendarAgora || (!!profissionalId && !conflict && slotsDoDia.length > 0));
 
   const motivoBloqueio = !cliSel
     ? "Selecione a cliente."
@@ -4645,9 +4720,11 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
           ? "Preencha nome, sessões e preço do novo modelo de pacote."
           : agendarAgora && !profissionalId
             ? "Selecione o profissional para agendar a sessão."
-            : agendarAgora && conflict
-              ? "Escolha outro horário — o profissional já tem atendimento nesse dia e horário."
-              : "";
+            : agendarAgora && slotsDoDia.length === 0
+              ? "A clínica não funciona aos domingos. Escolha outra data."
+              : agendarAgora && conflict
+                ? "Escolha outro horário — o profissional já tem atendimento nesse dia e horário."
+                : "";
 
   const submit = async (e) => {
     e.preventDefault();
@@ -5088,8 +5165,8 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Horário:</label>
-                  <select value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle}>
-                    {SLOTS.map((t) => (
+                  <select value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle} disabled={slotsDoDia.length === 0}>
+                    {slotsDoDia.map((t) => (
                       <option key={t} value={t}>
                         {t}
                       </option>
@@ -5097,6 +5174,11 @@ function NovoPacoteModal({ clientes, modelosPacote, servicos, profissionais, age
                   </select>
                 </div>
               </div>
+              {slotsDoDia.length === 0 && (
+                <p style={{ color: C.danger, fontSize: 12, margin: 0 }}>
+                  A clínica não funciona aos domingos. Escolha outra data.
+                </p>
+              )}
               {conflict && (
                 <p style={{ color: C.danger, fontSize: 12, margin: 0 }}>
                   {profissionais.find((p) => p.id === profissionalId)?.nome} já tem um atendimento nesse dia e horário.
