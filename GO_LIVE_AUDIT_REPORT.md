@@ -69,6 +69,82 @@ final deste documento.
 
 ---
 
+## ✅ ATUALIZAÇÃO FINAL — 2026-09-13 (GO-LIVE aprovado)
+
+Todos os passos manuais listados na atualização acima foram concluídos
+pelo dono do sistema, em ordem, no Supabase real (não só no código):
+
+1. Migrations `0006`, `0007`, `0008`, `0009`, `0010` aplicadas no SQL
+   Editor do Supabase real e confirmadas (0006 precisou de uma
+   correção de idempotência — policy de `vendas`/`venda_itens` — feita
+   e reaplicada com sucesso).
+2. Primeiro usuário de staff criado em Authentication → Users e
+   vinculado em `funcionarios` — login ponta a ponta testado e
+   confirmado em produção (`pharusestetica.vercel.app`).
+3. Deploy publicado e testado ao vivo pelo dono do sistema a cada
+   commit desta sessão (login, Colaboradores, cancelar agendamento,
+   excluir cliente/pacote, carrinho de múltiplos serviços, correções
+   de mobile).
+
+**Trabalho adicional feito nesta sessão, além do que já estava listado
+acima:**
+
+- **Nova aba "Colaboradores"** em Gestão: criar/editar/desativar/
+  excluir profissional (nome, cargo, % comissão, cor). Excluir é
+  bloqueado com mensagem amigável quando há histórico (FK
+  `ON DELETE RESTRICT` em `agendamentos`/`repasses_comissao`) — nesse
+  caso o caminho é desativar.
+- **Cancelar Agendamento** (Gestão) e **Excluir Cliente / Excluir
+  Pacote** (com avisos de dados vinculados antes de confirmar).
+- **Carrinho de múltiplos serviços** na Área da Cliente: a cliente
+  seleciona vários serviços, escolhe um único horário de início, e o
+  sistema encaixa os atendimentos em sequência (somando durações).
+  Agendamento abre como modal centralizado, não mais um card que podia
+  ficar fora da tela no celular.
+- Correções de mobile: texto invisível no formulário de agendamento,
+  estados vazios (Clientes/Pacotes/Colaboradores), horário de hoje já
+  passado desabilitado, menu de abas mais compacto.
+- `scripts/gerar-config.js` + `CLAUDE_CODE_NUVEM.md`: o projeto agora
+  roda em sessões de Claude Code na nuvem (testado e confirmado pelo
+  dono do sistema), permitindo pedir ajustes futuros sem depender do
+  PC ligado.
+- **Confirmado nesta sessão**: `supabase/limpeza_dados_demo.sql`
+  executado (dados de exemplo/teste removidos) e todas as
+  profissionais reais cadastradas em Colaboradores antes do
+  lançamento.
+- **Decisão consciente**: a rotação da anon key (recomendada, não
+  obrigatória) foi adiada por escolha do dono do sistema — o RLS real
+  já protege os dados independentemente da anon key em uso, então o
+  risco residual é a chave antiga ter circulado publicamente antes da
+  correção, não um problema de proteção atual.
+
+### Por que C4 está de fato fechado, não só mitigado
+
+Com `is_staff()` real (0008) e a policy `"staff funcionarios" for all
+using (is_staff()) with check (is_staff())`, um cadastro público novo
+não consegue mais se auto-inserir em `funcionarios`: a própria escrita
+nessa tabela exige `is_staff() = true`, que essa conta recém-criada não
+tem. A janela de auto-elevação descrita em C4 não existe mais na
+configuração atual.
+
+### Backlog aceito para depois do go-live (não bloqueia)
+
+- **M4 — Backup do Supabase**: plano/PITR não verificado nesta sessão.
+  Confirmar em Settings → Database → Backups antes de acumular muito
+  volume de dados reais.
+- **A6 — Rate limiting/CAPTCHA/MFA**: configuração opcional no painel
+  do Supabase Auth, não no código.
+- **M2 — Cobertura de testes**: ainda só cobre login/autenticação (27
+  testes). Colaboradores, carrinho e exclusões não têm teste
+  automatizado — validados manualmente nesta sessão, mas mudanças
+  futuras nessas áreas merecem reconferência manual.
+- **M5, M6, M8, M9, L1-L7**: sem mudança, seguem como backlog de médio
+  prazo (ver seções originais abaixo).
+
+**Veredito: 🟢 GO** — sistema aprovado para uso com clientes reais.
+
+---
+
 ## ⚠️ Nota metodológica crítica — leia antes do resto
 
 Esta auditoria distingue três estados diferentes do sistema, porque eles **não são iguais** neste momento:
@@ -83,13 +159,14 @@ Ou seja: existe uma correção completa e bem implementada para o maior problema
 
 ---
 
-## STATUS: 🔴 NO-GO
+## STATUS (histórico, 2026-09-10): 🔴 NO-GO
+### STATUS ATUAL (2026-09-13): 🟢 GO — ver "ATUALIZAÇÃO FINAL" no topo do documento
 
 ```
-CRITICAL: 4
-HIGH:     6
-MEDIUM:   10
-LOW:      7
+CRITICAL: 4 (histórico — todos resolvidos, ver atualização final)
+HIGH:     6 (histórico — A1/A2/A4/A5 resolvidos, A3 resolvido por remoção, A6 é config. de painel, não bloqueia)
+MEDIUM:   10 (histórico — M3/M10 resolvidos, restante é backlog não-bloqueante)
+LOW:      7 (histórico — sem mudança, backlog de baixa prioridade)
 ```
 
 **BLOCKERS:**
@@ -566,7 +643,7 @@ possível: painel de Gestão sem login e banco de dados com leitura/escrita púb
 
 ---
 
-## GO-LIVE GATE
+## GO-LIVE GATE (histórico, 2026-09-10 — ver resultado atual logo abaixo)
 
 ```
 [ ] QA APROVADO           — pendente (sem testes de agenda/pagamento/estoque; bug de sobreposição A4)
@@ -581,8 +658,27 @@ possível: painel de Gestão sem login e banco de dados com leitura/escrita púb
 [ ] PRODUÇÃO VALIDADA     — REPROVADO — estado publicado hoje é o mais aberto possível do sistema
 ```
 
-# 🔴 NO-GO
+# 🔴 NO-GO (2026-09-10, histórico)
 
-Não recomendar produção com dados reais de clientes até que os 4 itens críticos sejam resolvidos **no ambiente
-real** (Supabase + deploy publicado), não apenas no working tree local, e verificados com as queries de
-confirmação descritas em cada item.
+## GO-LIVE GATE — RESULTADO ATUAL (2026-09-13)
+
+```
+[x] QA APROVADO           — testado manualmente ao vivo pelo dono do sistema (login, agenda, carrinho,
+                             Colaboradores, exclusões); A4 corrigido (migration 0010); sem teste automatizado
+                             além de login (M2, backlog não-bloqueante)
+[x] BACKEND APROVADO      — paginação implementada (A1)
+[x] DATABASE APROVADO     — is_staff() real confirmado aplicado; funcionarios com staff real vinculado
+[x] SECURITY APROVADO     — C1-C4 resolvidos e verificados no ambiente real (não só no código)
+[x] FRONTEND APROVADO     — A2, A3 (removido), A4, A5 resolvidos
+[x] INFRA APROVADA        — headers OK (+ HSTS), deploy testado e confirmado em produção a cada commit
+[ ] BACKUP VALIDADO       — não verificado (M4) — confirmar plano/PITR no painel do Supabase, não bloqueia
+[ ] ROLLBACK VALIDADO     — não verificado (M5) — backlog, não bloqueia
+[x] PERFORMANCE VALIDADA  — paginação resolve o risco identificado (A1)
+[x] PRODUÇÃO VALIDADA     — login, RLS real, dados de demonstração removidos, equipe real cadastrada
+```
+
+# 🟢 GO (2026-09-13)
+
+Sistema aprovado para uso com clientes reais. Os 4 itens críticos foram resolvidos e verificados no ambiente
+real (Supabase + deploy publicado), com queries de confirmação rodadas pelo dono do sistema. M4 e M5 seguem como
+recomendação para tratar logo após o lançamento, sem bloquear o go-live.
