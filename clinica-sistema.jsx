@@ -27,7 +27,9 @@ import {
   ChevronRight,
   Lock,
   LogOut,
-  EyeOff
+  EyeOff,
+  Trash2,
+  Ban
 } from "lucide-react";
 import * as db from "./db/queries.js";
 import * as auth from "./db/auth.js";
@@ -1804,6 +1806,7 @@ function GestaoView({
   const [showNovaDespesa, setShowNovaDespesa] = useState(false);
   const [showNovoPacoteModal, setShowNovoPacoteModal] = useState(false);
   const [showNovoServicoForm, setShowNovoServicoForm] = useState(false);
+  const [showNovoProfissionalForm, setShowNovoProfissionalForm] = useState(false);
 
   // DRE CALCULADO EM TEMPO REAL (produtosVendidos vem de vendas reais
   // registradas pela loja — ver db/queries.js#listarItensVendidos)
@@ -1886,6 +1889,58 @@ function GestaoView({
       setRepassesComissao(await db.listarRepassesComissao());
     } catch (err) {
       window.alert(err.message || "Não foi possível liquidar o repasse.");
+    }
+  };
+
+  // Colaboradores (profissionais)
+  const handleCriarProfissional = async (novo) => {
+    await db.criarProfissional(novo);
+    setProfissionais(await db.listarProfissionais());
+  };
+
+  const handleAtualizarProfissional = async (id, patch) => {
+    await db.atualizarProfissional(id, patch);
+    setProfissionais(await db.listarProfissionais());
+  };
+
+  const handleExcluirProfissional = async (id) => {
+    if (!window.confirm("Excluir esta profissional? Essa ação não pode ser desfeita.")) return;
+    try {
+      await db.excluirProfissional(id);
+      setProfissionais(await db.listarProfissionais());
+    } catch (err) {
+      window.alert(err.message || "Não foi possível excluir a profissional.");
+    }
+  };
+
+  // Clientes e pacotes
+  const handleExcluirCliente = async (cliente) => {
+    const pacotesDaCliente = clientesPacotes.filter((p) => p.clienteId === cliente.id);
+    const aviso =
+      pacotesDaCliente.length > 0
+        ? `${cliente.nome} tem ${pacotesDaCliente.length} pacote(s) cadastrado(s) — eles também serão excluídos junto. Confirma?`
+        : `Excluir ${cliente.nome}? Essa ação não pode ser desfeita.`;
+    if (!window.confirm(aviso)) return;
+    try {
+      await db.excluirCliente(cliente.id);
+      const [novosClientes, novosPacotes] = await Promise.all([
+        db.listarClientes(),
+        db.listarClientesPacotes(),
+      ]);
+      setClientes(novosClientes);
+      setClientesPacotes(novosPacotes);
+    } catch (err) {
+      window.alert(err.message || "Não foi possível excluir a cliente.");
+    }
+  };
+
+  const handleExcluirPacote = async (pacoteId) => {
+    if (!window.confirm("Excluir este pacote? Essa ação não pode ser desfeita.")) return;
+    try {
+      await db.excluirPacoteCliente(pacoteId);
+      setClientesPacotes(await db.listarClientesPacotes());
+    } catch (err) {
+      window.alert(err.message || "Não foi possível excluir o pacote.");
     }
   };
 
@@ -2081,6 +2136,13 @@ function GestaoView({
           icon={<Sparkles size={16} />}
           label="Serviços & Menu"
           count={servicos.filter((s) => s.ativo !== false).length}
+        />
+        <NavTabButton
+          active={activeTab === "colaboradores"}
+          onClick={() => setActiveTab("colaboradores")}
+          icon={<UserCheck size={16} />}
+          label="Colaboradores"
+          count={profissionais.filter((p) => p.ativo !== false).length}
         />
       </div>
 
@@ -2294,6 +2356,29 @@ function GestaoView({
                             }}
                           >
                             Baixar Comissão
+                          </button>
+                        )}
+
+                        {a.status !== "cancelado" && (
+                          <button
+                            title="Cancelar Agendamento"
+                            onClick={() => {
+                              if (window.confirm(`Cancelar o agendamento de ${a.clienteNome}?`)) {
+                                handleUpdateStatusAgendamento(a.id, "cancelado");
+                              }
+                            }}
+                            className="icon-btn"
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              background: "rgba(248,113,113,.14)",
+                              color: C.danger,
+                              display: "grid",
+                              placeItems: "center",
+                            }}
+                          >
+                            <Ban size={16} />
                           </button>
                         )}
                       </div>
@@ -2656,18 +2741,37 @@ function GestaoView({
                         {pac.servicoNome}
                       </p>
                     </div>
-                    <span
-                      style={{
-                        background: pac.status === "ativo" ? "rgba(127,163,150,.16)" : "rgba(255,255,255,.07)",
-                        color: pac.status === "ativo" ? C.sage : C.muted,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: "4px 10px",
-                        borderRadius: 20,
-                      }}
-                    >
-                      {pac.status === "ativo" ? "Ativo" : "Concluído"}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span
+                        style={{
+                          background: pac.status === "ativo" ? "rgba(127,163,150,.16)" : "rgba(255,255,255,.07)",
+                          color: pac.status === "ativo" ? C.sage : C.muted,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: "4px 10px",
+                          borderRadius: 20,
+                        }}
+                      >
+                        {pac.status === "ativo" ? "Ativo" : "Concluído"}
+                      </span>
+                      <button
+                        title="Excluir Pacote"
+                        onClick={() => handleExcluirPacote(pac.id)}
+                        className="icon-btn"
+                        style={{
+                          width: 28,
+                          height: 28,
+                          flex: "0 0 auto",
+                          borderRadius: 8,
+                          background: "rgba(248,113,113,.14)",
+                          color: C.danger,
+                          display: "grid",
+                          placeItems: "center",
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Barra de Progresso de Sessões */}
@@ -2935,25 +3039,44 @@ function GestaoView({
                         Nasc: {formatDataBR(cli.nascimento)}
                       </p>
                     </div>
-                    <a
-                      href={`https://wa.me/55${cli.telefone.replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        color: C.success,
-                        textDecoration: "none",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background: "rgba(127,163,150,.16)",
-                        padding: "4px 8px",
-                        borderRadius: 8,
-                      }}
-                    >
-                      <Phone size={13} /> {cli.telefone}
-                    </a>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <a
+                        href={`https://wa.me/55${cli.telefone.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          color: C.success,
+                          textDecoration: "none",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: "rgba(127,163,150,.16)",
+                          padding: "4px 8px",
+                          borderRadius: 8,
+                        }}
+                      >
+                        <Phone size={13} /> {cli.telefone}
+                      </a>
+                      <button
+                        title="Excluir Cliente"
+                        onClick={() => handleExcluirCliente(cli)}
+                        className="icon-btn"
+                        style={{
+                          width: 28,
+                          height: 28,
+                          flex: "0 0 auto",
+                          borderRadius: 8,
+                          background: "rgba(248,113,113,.14)",
+                          color: C.danger,
+                          display: "grid",
+                          placeItems: "center",
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 10, marginTop: 10 }}>
@@ -3033,6 +3156,48 @@ function GestaoView({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* TAB CONTENT: COLABORADORES */}
+      {activeTab === "colaboradores" && (
+        <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <h3 className="display" style={{ fontSize: 20, margin: "0 0 2px" }}>
+                Colaboradores
+              </h3>
+              <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>
+                Equipe, % de comissão e cor de identificação usada na agenda.
+              </p>
+            </div>
+            {!showNovoProfissionalForm && (
+              <button type="button" className="btn-primary" onClick={() => setShowNovoProfissionalForm(true)} style={{ padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                <Plus size={16} /> Novo Colaborador
+              </button>
+            )}
+          </div>
+
+          {showNovoProfissionalForm && (
+            <NovoProfissionalForm
+              onClose={() => setShowNovoProfissionalForm(false)}
+              onCreate={async (novo) => {
+                await handleCriarProfissional(novo);
+                setShowNovoProfissionalForm(false);
+              }}
+            />
+          )}
+
+          <div style={{ display: "grid", gap: 10 }}>
+            {profissionais.map((p) => (
+              <ProfissionalRow
+                key={p.id}
+                profissional={p}
+                onSave={handleAtualizarProfissional}
+                onExcluir={() => handleExcluirProfissional(p.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -3370,6 +3535,8 @@ function ClienteView({ servicos, profissionais }) {
                       border: `1px solid ${C.line}`,
                       fontSize: 14,
                       outline: "none",
+                      background: "#081714",
+                      color: C.ink,
                     }}
                   />
                   <input
@@ -3383,6 +3550,8 @@ function ClienteView({ servicos, profissionais }) {
                       border: `1px solid ${C.line}`,
                       fontSize: 14,
                       outline: "none",
+                      background: "#081714",
+                      color: C.ink,
                     }}
                   />
                 </div>
@@ -5015,6 +5184,190 @@ function NovoServicoForm({ profissionais, onCreate, onClose }) {
       {error && <div style={{ color: C.danger, fontSize: 12 }}>{error}</div>}
       <button type="button" onClick={criar} disabled={salvando} className="btn-primary" style={{ padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, justifySelf: "start" }}>
         {salvando ? "Criando..." : "Criar Serviço"}
+      </button>
+    </div>
+  );
+}
+
+// Linha editável de um colaborador (aba Gestão → Colaboradores) — mesmo
+// padrão do ServicoRow: edita e salva inline, sem modal.
+function ProfissionalRow({ profissional, onSave, onExcluir }) {
+  const [nome, setNome] = useState(profissional.nome);
+  const [cargo, setCargo] = useState(profissional.cargo || "");
+  const [comissaoPercentual, setComissaoPercentual] = useState(String(profissional.comissaoPercentual));
+  const [corIdentificacao, setCorIdentificacao] = useState(profissional.corIdentificacao || "#7FA396");
+  const [ativo, setAtivo] = useState(profissional.ativo !== false);
+  const [salvando, setSalvando] = useState(false);
+  const [error, setError] = useState("");
+
+  const salvar = async () => {
+    setError("");
+    const comissaoNum = Number(String(comissaoPercentual).replace(",", "."));
+    if (!nome.trim()) return setError("Informe o nome da profissional.");
+    if (comissaoPercentual === "" || Number.isNaN(comissaoNum) || comissaoNum < 0 || comissaoNum > 100) {
+      return setError("Informe uma % de comissão entre 0 e 100.");
+    }
+
+    setSalvando(true);
+    try {
+      await onSave(profissional.id, {
+        nome: nome.trim(),
+        cargo: cargo.trim() || null,
+        comissaoPercentual: comissaoNum,
+        corIdentificacao,
+        ativo,
+      });
+    } catch (err) {
+      setError(err.message || "Não foi possível salvar.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div
+      className="card"
+      style={{
+        background: C.card,
+        borderRadius: 16,
+        padding: 16,
+        border: `1px solid ${ativo ? C.line : C.danger}`,
+        opacity: ativo ? 1 : 0.6,
+        display: "grid",
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <input
+          type="color"
+          value={corIdentificacao}
+          onChange={(e) => setCorIdentificacao(e.target.value)}
+          title="Cor de identificação"
+          style={{ width: 34, height: 34, borderRadius: 10, border: `1px solid ${C.line}`, padding: 2, background: "none", flex: "0 0 auto" }}
+        />
+        <input value={nome} onChange={(e) => setNome(e.target.value)} style={{ ...rowInputStyle, flex: 1, fontWeight: 600 }} />
+        <button
+          type="button"
+          className="chip"
+          onClick={() => setAtivo((a) => !a)}
+          style={{
+            flex: "0 0 auto", padding: "6px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+            background: ativo ? "rgba(127,163,150,.16)" : "rgba(248,113,113,.14)",
+            color: ativo ? C.success : C.danger, border: "none",
+          }}
+        >
+          {ativo ? "Ativa" : "Inativa"}
+        </button>
+        <button
+          type="button"
+          title="Excluir Colaborador"
+          onClick={onExcluir}
+          className="icon-btn"
+          style={{ width: 32, height: 32, flex: "0 0 auto", borderRadius: 8, background: "rgba(248,113,113,.14)", color: C.danger, display: "grid", placeItems: "center" }}
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>
+        <input value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Cargo / especialidade" style={rowInputStyle} />
+        <div style={{ position: "relative" }}>
+          <input
+            value={comissaoPercentual}
+            onChange={(e) => setComissaoPercentual(e.target.value)}
+            inputMode="decimal"
+            placeholder="% Comissão"
+            style={{ ...rowInputStyle, paddingRight: 26 }}
+          />
+          <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: C.muted, fontSize: 13, pointerEvents: "none" }}>%</span>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          type="button"
+          onClick={salvar}
+          disabled={salvando}
+          className="btn-primary"
+          style={{ padding: "8px 20px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}
+        >
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      {error && <div style={{ color: C.danger, fontSize: 12 }}>{error}</div>}
+    </div>
+  );
+}
+
+// Formulário compacto para cadastrar um colaborador novo direto na aba
+// Gestão → Colaboradores.
+function NovoProfissionalForm({ onCreate, onClose }) {
+  const [nome, setNome] = useState("");
+  const [cargo, setCargo] = useState("");
+  const [comissaoPercentual, setComissaoPercentual] = useState("50");
+  const [corIdentificacao, setCorIdentificacao] = useState("#7FA396");
+  const [salvando, setSalvando] = useState(false);
+  const [error, setError] = useState("");
+
+  const criar = async () => {
+    setError("");
+    const comissaoNum = Number(String(comissaoPercentual).replace(",", "."));
+    if (!nome.trim()) return setError("Informe o nome da profissional.");
+    if (comissaoPercentual === "" || Number.isNaN(comissaoNum) || comissaoNum < 0 || comissaoNum > 100) {
+      return setError("Informe uma % de comissão entre 0 e 100.");
+    }
+
+    setSalvando(true);
+    try {
+      await onCreate({
+        nome: nome.trim(),
+        cargo: cargo.trim() || null,
+        comissaoPercentual: comissaoNum,
+        corIdentificacao,
+      });
+      setNome("");
+      setCargo("");
+    } catch (err) {
+      setError(err.message || "Não foi possível criar o colaborador.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ background: C.card, borderRadius: 16, padding: 18, border: `1px solid ${C.gold}`, display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.gold }}>Novo Colaborador</h4>
+        <button type="button" className="icon-btn" onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>
+          <X size={16} />
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <input
+          type="color"
+          value={corIdentificacao}
+          onChange={(e) => setCorIdentificacao(e.target.value)}
+          title="Cor de identificação"
+          style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${C.line}`, padding: 2, background: "none", flex: "0 0 auto" }}
+        />
+        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo" style={{ ...rowInputStyle, flex: 1 }} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>
+        <input value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Cargo / especialidade" style={rowInputStyle} />
+        <div style={{ position: "relative" }}>
+          <input
+            value={comissaoPercentual}
+            onChange={(e) => setComissaoPercentual(e.target.value)}
+            inputMode="decimal"
+            placeholder="% Comissão"
+            style={{ ...rowInputStyle, paddingRight: 26 }}
+          />
+          <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: C.muted, fontSize: 13, pointerEvents: "none" }}>%</span>
+        </div>
+      </div>
+      {error && <div style={{ color: C.danger, fontSize: 12 }}>{error}</div>}
+      <button type="button" onClick={criar} disabled={salvando} className="btn-primary" style={{ padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, justifySelf: "start" }}>
+        {salvando ? "Criando..." : "Criar Colaborador"}
       </button>
     </div>
   );

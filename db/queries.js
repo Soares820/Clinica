@@ -316,6 +316,91 @@ export async function atualizarStatusAgendamento(agendamentoId, novoStatus) {
   );
 }
 
+// Cancelar é só uma mudança de status — o trigger
+// agendamentos_status_pacote_sync (0002_functions.sql) já devolve a
+// sessão consumida do pacote automaticamente quando o status muda
+// para 'cancelado', então não precisa de nenhuma lógica extra aqui.
+export async function cancelarAgendamento(agendamentoId) {
+  await atualizarStatusAgendamento(agendamentoId, "cancelado");
+}
+
+// ─────────────────────────────────────────────────────────────
+// Mutações — colaboradores (profissionais)
+// ─────────────────────────────────────────────────────────────
+export async function criarProfissional(prof) {
+  const row = unwrap(
+    await supabase
+      .from("profissionais")
+      .insert({
+        nome: prof.nome,
+        cargo: prof.cargo || null,
+        comissao_percentual: prof.comissaoPercentual,
+        cor_identificacao: prof.corIdentificacao || null,
+        ativo: true,
+      })
+      .select()
+      .single()
+  );
+  return mapProfissional(row);
+}
+
+export async function atualizarProfissional(id, patch) {
+  const payload = {};
+  if (patch.nome !== undefined) payload.nome = patch.nome;
+  if (patch.cargo !== undefined) payload.cargo = patch.cargo;
+  if (patch.comissaoPercentual !== undefined) payload.comissao_percentual = patch.comissaoPercentual;
+  if (patch.corIdentificacao !== undefined) payload.cor_identificacao = patch.corIdentificacao;
+  if (patch.ativo !== undefined) payload.ativo = patch.ativo;
+
+  const row = unwrap(
+    await supabase.from("profissionais").update(payload).eq("id", id).select().single()
+  );
+  return mapProfissional(row);
+}
+
+// 23503 = foreign_key_violation: profissional com agendamentos ou
+// repasses de comissão no histórico não pode ser excluída (agendamentos.
+// profissional_id é ON DELETE RESTRICT, de propósito — nunca perder
+// histórico financeiro). Nesse caso a solução é desativar (ativo=false),
+// não excluir.
+export async function excluirProfissional(id) {
+  const { error } = await supabase.from("profissionais").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error(
+        "Não é possível excluir: esta profissional tem agendamentos ou repasses de comissão no histórico. Desative em vez de excluir."
+      );
+    }
+    throw error;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Mutações — clientes e pacotes (excluir)
+// ─────────────────────────────────────────────────────────────
+// 23503 = foreign_key_violation: cliente com agendamentos no
+// histórico não pode ser excluída (agendamentos.cliente_id é ON
+// DELETE RESTRICT). clientes_pacotes.cliente_id já é ON DELETE
+// CASCADE — excluir uma cliente sem agendamentos, mas com pacotes,
+// apaga os pacotes junto (o chamador deve avisar antes de confirmar).
+export async function excluirCliente(id) {
+  const { error } = await supabase.from("clientes").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error("Não é possível excluir: esta cliente tem agendamentos no histórico.");
+    }
+    throw error;
+  }
+}
+
+// agendamentos.pacote_utilizado_id é ON DELETE SET NULL — excluir um
+// pacote não apaga nem bloqueia os agendamentos que o usaram, só
+// desvincula (valor/comissão já ficaram gravados no agendamento na
+// criação, então o histórico financeiro continua correto).
+export async function excluirPacoteCliente(id) {
+  unwrap(await supabase.from("clientes_pacotes").delete().eq("id", id));
+}
+
 export async function darBaixaComissaoAgendamento(agendamentoId) {
   const hoje = new Date().toISOString().split("T")[0];
   unwrap(
