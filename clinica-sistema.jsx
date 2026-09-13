@@ -1359,17 +1359,13 @@ export default function App() {
           .aurora-blob, .aurora-field { animation: none !important; opacity: .4 !important; }
         }
 
-        .two-col { grid-template-columns: 1fr; }
         .kpi-grid { grid-template-columns: repeat(2,1fr); }
         .gestao-grid { grid-template-columns: 1fr; }
-        .sidebar-card { position: static; }
         @media (min-width: 760px) {
           .kpi-grid { grid-template-columns: repeat(4,1fr); }
         }
         @media (min-width: 900px) {
-          .two-col { grid-template-columns: 1fr 340px; }
           .gestao-grid { grid-template-columns: 1.4fr 1fr; }
-          .sidebar-card { position: sticky; top: 90px; }
         }
 
         /* Abas da Gestão: lista scrollável no eixo X em telas estreitas —
@@ -3386,8 +3382,27 @@ function GestaoView({
 // 7. ÁREA DA CLIENTE (CLIENTE VIEW)
 // ─────────────────────────────────────────────────────────────
 
+// Soma minutos a um horário "HH:MM", devolvendo outro "HH:MM" — usado
+// pra encaixar os serviços do carrinho em sequência (um atendimento
+// começa exatamente quando o anterior termina).
+function somarMinutos(horario, minutos) {
+  const [h, m] = horario.split(":").map(Number);
+  const total = h * 60 + m + minutos;
+  const hh = String(Math.floor(total / 60) % 24).padStart(2, "0");
+  const mm = String(total % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 function ClienteView({ servicos, profissionais }) {
-  const [selService, setSelService] = useState(null);
+  // Carrinho: a cliente pode escolher vários serviços pro mesmo
+  // agendamento. Ela escolhe só o horário de INÍCIO — os serviços
+  // seguintes são encaixados em sequência automaticamente, somando a
+  // duração de cada um (cada serviço continua indo pro profissional
+  // padrão dele, então itens do carrinho podem ter profissionais
+  // diferentes — nesse caso os atendimentos ficam em sequência, não em
+  // paralelo, mesmo sendo pessoas diferentes).
+  const [carrinho, setCarrinho] = useState([]);
+  const [modalAberto, setModalAberto] = useState(false);
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [selDate, setSelDate] = useState(null);
@@ -3396,30 +3411,41 @@ function ClienteView({ servicos, profissionais }) {
   const [bookingError, setBookingError] = useState("");
   const [enviando, setEnviando] = useState(false);
 
-  // No mobile (uma coluna só), o card de agendamento vem DEPOIS da
-  // lista inteira de serviços no HTML — sem isto, escolher um serviço
-  // não leva a cliente pra onde ela precisa continuar, e ela tem que
-  // adivinhar que precisa rolar a tela pra baixo. `block: "nearest"`
-  // não faz nada se o card já estiver visível (ex: desktop, onde o
-  // layout de 2 colunas já mostra os dois lado a lado).
-  const sidebarRef = useRef(null);
-  const selecionarServico = (s) => {
-    setSelService(s);
-    setSelDate(null);
-    setSelSlot(null);
-    sidebarRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const alternarNoCarrinho = (s) => {
+    setCarrinho((atual) =>
+      atual.some((item) => item.id === s.id)
+        ? atual.filter((item) => item.id !== s.id)
+        : [...atual, s]
+    );
   };
 
-  // Horários já ocupados do profissional selecionado, só pra dar a
-  // dica visual "esse horário já está pego" — busca escopada por
-  // data+profissional via RPC pública (db/queries.js#listarHorariosOcupados),
-  // nunca a agenda completa: a Área da Cliente não tem (nem deveria
-  // ter) acesso à lista de agendamentos com nome de outras clientes.
-  // A validação que de fato impede o conflito acontece no servidor,
-  // na hora de confirmar (ver A5/A4 em GO_LIVE_AUDIT_REPORT.md).
-  const [horariosOcupados, setHorariosOcupados] = useState([]);
+  const removerDoCarrinho = (servicoId) => {
+    setCarrinho((atual) => atual.filter((item) => item.id !== servicoId));
+  };
 
-  const selPro = profissionais.find((p) => p.id === selService?.proPadraoId) || profissionais[0];
+  const abrirAgendamento = () => {
+    setSelDate(null);
+    setSelSlot(null);
+    setBookingError("");
+    setModalAberto(true);
+  };
+
+  const fecharAgendamento = () => {
+    setModalAberto(false);
+    setSelDate(null);
+    setSelSlot(null);
+    setBookingError("");
+  };
+
+  // Horários já ocupados dos profissionais envolvidos no carrinho, só
+  // pra dar a dica visual "esse horário já está pego" no PRIMEIRO
+  // serviço da sequência (os seguintes têm horário calculado, quase
+  // nunca batendo com um slot fixo, então não dá pra checar contra uma
+  // lista simples de horários — a validação real acontece no servidor,
+  // ver A5/A4 em GO_LIVE_AUDIT_REPORT.md) — busca escopada por
+  // data+profissional via RPC pública (db/queries.js#listarHorariosOcupados),
+  // nunca a agenda completa.
+  const [horariosOcupadosPorProfissional, setHorariosOcupadosPorProfissional] = useState({});
 
   const servicosAtivos = useMemo(() => servicos.filter((s) => s.ativo !== false), [servicos]);
   const servicosPromocao = useMemo(
@@ -3439,25 +3465,61 @@ function ClienteView({ servicos, profissionais }) {
     [servicosAtivos]
   );
 
+  const totalPreco = useMemo(
+    () => carrinho.reduce((soma, s) => soma + precoEfetivo(s), 0),
+    [carrinho]
+  );
+
+  // Sequência calculada: cada item do carrinho com seu profissional
+  // padrão e o horário de início (o primeiro é o escolhido pela
+  // cliente; os seguintes somam a duração dos anteriores).
+  const sequenciaAgendamentos = useMemo(() => {
+    if (!selSlot) return [];
+    let horarioAtual = selSlot;
+    return carrinho.map((s) => {
+      const profissional = profissionais.find((p) => p.id === s.proPadraoId) || profissionais[0];
+      const item = { servico: s, profissional, horario: horarioAtual };
+      horarioAtual = somarMinutos(horarioAtual, s.duracao);
+      return item;
+    });
+  }, [carrinho, selSlot, profissionais]);
+
   useEffect(() => {
-    if (!selDate || !selPro) {
-      setHorariosOcupados([]);
+    if (!selDate || carrinho.length === 0) {
+      setHorariosOcupadosPorProfissional({});
       return;
     }
     let cancelado = false;
-    db.listarHorariosOcupados(selDate, selPro.id)
-      .then((horarios) => {
-        if (!cancelado) setHorariosOcupados(horarios);
+    const idsUnicos = [
+      ...new Set(
+        carrinho
+          .map((s) => (profissionais.find((p) => p.id === s.proPadraoId) || profissionais[0])?.id)
+          .filter(Boolean)
+      ),
+    ];
+    Promise.all(
+      idsUnicos.map((id) => db.listarHorariosOcupados(selDate, id).then((horarios) => [id, horarios]))
+    )
+      .then((pares) => {
+        if (!cancelado) setHorariosOcupadosPorProfissional(Object.fromEntries(pares));
       })
       .catch(() => {
         // Falha aqui não deve travar o agendamento — é só uma dica
         // visual; a confirmação ainda é validada pelo servidor.
-        if (!cancelado) setHorariosOcupados([]);
+        if (!cancelado) setHorariosOcupadosPorProfissional({});
       });
     return () => {
       cancelado = true;
     };
-  }, [selDate, selPro?.id]);
+  }, [selDate, carrinho, profissionais]);
+
+  // Se a cliente remover o último serviço do carrinho com o modal
+  // aberto, fecha sozinho em vez de deixar um modal vazio na tela.
+  useEffect(() => {
+    if (modalAberto && carrinho.length === 0) {
+      setModalAberto(false);
+    }
+  }, [modalAberto, carrinho.length]);
 
   // Não faz sentido oferecer um horário de hoje que já passou (ex: são
   // 11h55 e o slot das 09:00 ainda aparecia selecionável). Só se aplica
@@ -3470,42 +3532,65 @@ function ClienteView({ servicos, profissionais }) {
     return h * 60 + m <= agoraEmMinutos;
   };
 
+  const primeiroItem = sequenciaAgendamentos[0];
+  const horariosDoPrimeiroProfissional = primeiroItem
+    ? horariosOcupadosPorProfissional[primeiroItem.profissional?.id] || []
+    : [];
   const conflict = !!(
-    selService &&
+    primeiroItem &&
     selDate &&
     selSlot &&
-    (horariosOcupados.includes(selSlot) || horarioJaPassou(selSlot))
+    (horariosDoPrimeiroProfissional.includes(selSlot) || horarioJaPassou(selSlot))
   );
 
   const handleConfirmarAgendamentoCliente = async () => {
     if (enviando) return; // trava duplo clique/duplo submit
-    if (!selService || !selDate || !selSlot || !clientName.trim() || !clientPhone.trim() || conflict) return;
+    if (carrinho.length === 0 || !selDate || !selSlot || !clientName.trim() || !clientPhone.trim() || conflict) {
+      return;
+    }
 
     setBookingError("");
     setEnviando(true);
+    const criados = [];
     try {
-      await db.criarAgendamentoPublico({
-        clienteNome: clientName.trim(),
-        clienteTelefone: clientPhone.trim(),
-        servicoId: selService.id,
-        profissionalId: selPro.id,
-        data: selDate,
-        horario: selSlot,
-      });
+      for (const item of sequenciaAgendamentos) {
+        await db.criarAgendamentoPublico({
+          clienteNome: clientName.trim(),
+          clienteTelefone: clientPhone.trim(),
+          servicoId: item.servico.id,
+          profissionalId: item.profissional.id,
+          data: selDate,
+          horario: item.horario,
+        });
+        criados.push(item);
+      }
       setConfirmed({
-        service: selService,
+        itens: criados,
         date: selDate,
-        slot: selSlot,
         clientName: clientName.trim(),
-        proName: selPro.nome,
       });
+      setCarrinho([]);
+      setModalAberto(false);
       setEnviando(false);
     } catch (err) {
-      setBookingError(err.message || "Não foi possível confirmar o agendamento. Tente novamente.");
       setEnviando(false);
+      if (criados.length > 0) {
+        const faltante = sequenciaAgendamentos[criados.length];
+        setBookingError(
+          `${criados.length} de ${sequenciaAgendamentos.length} serviço(s) foram agendados, mas "${faltante.servico.nome}" não pôde ser confirmado (${err.message || "horário indisponível"}). Entre em contato pra ajustarmos o restante.`
+        );
+      } else {
+        setBookingError(err.message || "Não foi possível confirmar o agendamento. Tente novamente.");
+      }
       // Recarrega a dica de horários ocupados — o erro pode ser
       // justamente um conflito que surgiu entre a última busca e agora.
-      db.listarHorariosOcupados(selDate, selPro.id).then(setHorariosOcupados).catch(() => {});
+      if (primeiroItem) {
+        db.listarHorariosOcupados(selDate, primeiroItem.profissional.id)
+          .then((horarios) =>
+            setHorariosOcupadosPorProfissional((atual) => ({ ...atual, [primeiroItem.profissional.id]: horarios }))
+          )
+          .catch(() => {});
+      }
     }
   };
 
@@ -3559,9 +3644,7 @@ function ClienteView({ servicos, profissionais }) {
         </div>
       </div>
 
-      <div className="two-col" style={{ display: "grid", gap: 24, alignItems: "start" }}>
-          {/* Lista de Serviços */}
-          <div style={{ display: "grid", gap: 28 }}>
+      <div style={{ display: "grid", gap: 28 }}>
             {servicosPromocao.length > 0 && (
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -3576,8 +3659,8 @@ function ClienteView({ servicos, profissionais }) {
                       key={s.id}
                       servico={s}
                       profissional={s.proPadraoId ? profissionais.find((p) => p.id === s.proPadraoId) : null}
-                      selected={selService?.id === s.id}
-                      onSelect={() => selecionarServico(s)}
+                      selected={carrinho.some((item) => item.id === s.id)}
+                      onSelect={() => alternarNoCarrinho(s)}
                     />
                   ))}
                 </div>
@@ -3595,170 +3678,275 @@ function ClienteView({ servicos, profissionais }) {
                       key={s.id}
                       servico={s}
                       profissional={s.proPadraoId ? profissionais.find((p) => p.id === s.proPadraoId) : null}
-                      selected={selService?.id === s.id}
-                      onSelect={() => selecionarServico(s)}
+                      selected={carrinho.some((item) => item.id === s.id)}
+                      onSelect={() => alternarNoCarrinho(s)}
                     />
                   ))}
                 </div>
               </div>
             ))}
-          </div>
+      </div>
 
-          {/* Sidebar Agendamento */}
-          <div
-            ref={sidebarRef}
-            className="sidebar-card card"
-            style={{ background: C.card, borderRadius: 18, padding: 22, border: `1px solid ${C.line}`, scrollMarginTop: 80 }}
+      {/* Barra do carrinho — some enquanto nenhum serviço está
+          selecionado; a cliente pode marcar vários serviços (cada um
+          vai pro profissional padrão dele) e escolher um único
+          horário de início pra sequência toda. */}
+      {carrinho.length > 0 && !modalAberto && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 40,
+            display: "flex",
+            justifyContent: "center",
+            padding: "0 16px 16px",
+          }}
+        >
+          <button
+            onClick={abrirAgendamento}
+            className="btn-primary lift"
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              padding: "14px 20px",
+              borderRadius: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              fontSize: 14,
+              fontWeight: 700,
+              boxShadow: "0 12px 30px -8px rgba(0,0,0,.5)",
+            }}
           >
-            {!selService ? (
-              <div style={{ textAlign: "center", padding: "30px 10px", color: C.muted }}>
-                <Flower2 size={32} color={C.gold} style={{ marginBottom: 8 }} />
-                <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: C.ink }}>
-                  Selecione um serviço
-                </p>
-                <p style={{ margin: "4px 0 0", fontSize: 13 }}>
-                  Escolha o procedimento desejado ao lado para definir o horário.
-                </p>
+            <span>
+              {carrinho.length} {carrinho.length === 1 ? "serviço selecionado" : "serviços selecionados"}
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {brl(totalPreco)} <ChevronRight size={18} />
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Modal de Agendamento — abre por cima da lista quando a
+          cliente confirma o carrinho, em vez de um card inline que
+          ficava fora da vista no celular. */}
+      {modalAberto && (
+        <div
+          onClick={fecharAgendamento}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(5,4,10,.72)",
+            backdropFilter: "blur(6px)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 50,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card"
+            style={{
+              background: C.card,
+              borderRadius: 18,
+              padding: 22,
+              border: `1px solid ${C.line}`,
+              maxWidth: 420,
+              width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={fecharAgendamento}
+              className="icon-btn"
+              style={{
+                position: "absolute", top: 14, right: 14, background: "none", color: C.muted,
+                width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center",
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10, color: C.sage, paddingRight: 30 }}>
+              Seu agendamento
+            </div>
+
+            <div style={{ display: "grid", gap: 6, marginBottom: 16 }}>
+              {carrinho.map((s) => {
+                const pro = profissionais.find((p) => p.id === s.proPadraoId) || profissionais[0];
+                const item = sequenciaAgendamentos.find((i) => i.servico.id === s.id);
+                return (
+                  <div
+                    key={s.id}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+                      background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "8px 10px",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{s.nome}</div>
+                      <div style={{ fontSize: 11, color: C.muted }}>
+                        {pro?.nome} · {s.duracao} min{item ? ` · começa às ${item.horario}` : ""}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{brl(precoEfetivo(s))}</span>
+                      <button
+                        type="button"
+                        title="Remover"
+                        onClick={() => removerDoCarrinho(s.id)}
+                        className="icon-btn"
+                        style={{ width: 24, height: 24, borderRadius: 6, background: "none", color: C.muted, display: "grid", placeItems: "center" }}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: C.gold, padding: "4px 2px 0" }}>
+                <span>Total</span>
+                <span>{brl(totalPreco)}</span>
               </div>
-            ) : (
-              <>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2, color: C.sage }}>
-                  {selService.nome}
-                </div>
-                <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px" }}>
-                  {selPro.nome} · {brl(precoEfetivo(selService))}
-                </p>
+            </div>
 
-                <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
-                  <input
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Seu nome completo"
-                    style={{
-                      width: "100%",
-                      padding: "11px 13px",
-                      borderRadius: 10,
-                      border: `1px solid ${C.line}`,
-                      fontSize: 14,
-                      outline: "none",
-                      background: "#081714",
-                      color: C.ink,
-                    }}
-                  />
-                  <input
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    placeholder="WhatsApp (ex: 11 98765-4321)"
-                    style={{
-                      width: "100%",
-                      padding: "11px 13px",
-                      borderRadius: 10,
-                      border: `1px solid ${C.line}`,
-                      fontSize: 14,
-                      outline: "none",
-                      background: "#081714",
-                      color: C.ink,
-                    }}
-                  />
-                </div>
+            <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+              <input
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Seu nome completo"
+                style={{
+                  width: "100%",
+                  padding: "11px 13px",
+                  borderRadius: 10,
+                  border: `1px solid ${C.line}`,
+                  fontSize: 14,
+                  outline: "none",
+                  background: "#081714",
+                  color: C.ink,
+                }}
+              />
+              <input
+                value={clientPhone}
+                onChange={(e) => setClientPhone(e.target.value)}
+                placeholder="WhatsApp (ex: 11 98765-4321)"
+                style={{
+                  width: "100%",
+                  padding: "11px 13px",
+                  borderRadius: 10,
+                  border: `1px solid ${C.line}`,
+                  fontSize: 14,
+                  outline: "none",
+                  background: "#081714",
+                  color: C.ink,
+                }}
+              />
+            </div>
 
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Escolha a data:</div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    marginBottom: 14,
-                    overflowX: "auto",
-                    paddingBottom: 4,
-                  }}
-                >
-                  {DATES.map((d) => (
-                    <button
-                      key={d.key}
-                      className="chip"
-                      onClick={() => {
-                        setSelDate(d.key);
-                        setSelSlot(null);
-                      }}
-                      style={{
-                        flex: "0 0 auto",
-                        minWidth: 52,
-                        padding: "8px 4px",
-                        borderRadius: 10,
-                        textAlign: "center",
-                        background: selDate === d.key ? C.aubergine : "rgba(255,255,255,.07)",
-                        color: selDate === d.key ? "#fff" : C.ink,
-                        border: `1px solid ${selDate === d.key ? C.aubergine : C.line}`,
-                      }}
-                    >
-                      <div style={{ fontSize: 10, fontWeight: 500, opacity: 0.85 }}>{d.top}</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{d.num}</div>
-                    </button>
-                  ))}
-                </div>
-
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Escolha o horário:</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {SLOTS.map((t) => {
-                    const passou = horarioJaPassou(t);
-                    return (
-                    <button
-                      key={t}
-                      className="chip"
-                      disabled={passou}
-                      onClick={() => setSelSlot(t)}
-                      style={{
-                        padding: "10px 0",
-                        borderRadius: 10,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        background: selSlot === t ? C.aubergine : "rgba(255,255,255,.07)",
-                        color: selSlot === t ? "#fff" : C.ink,
-                        border: `1px solid ${selSlot === t ? C.aubergine : C.line}`,
-                        opacity: passou ? 0.35 : 1,
-                        textDecoration: passou ? "line-through" : "none",
-                      }}
-                    >
-                      {t}
-                    </button>
-                    );
-                  })}
-                </div>
-
-                {conflict && (
-                  <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>
-                    Horário indisponível para {selPro.nome}. Por favor, selecione outro horário.
-                  </p>
-                )}
-                {bookingError && (
-                  <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>{bookingError}</p>
-                )}
-
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Escolha a data:</div>
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                marginBottom: 14,
+                overflowX: "auto",
+                paddingBottom: 4,
+              }}
+            >
+              {DATES.map((d) => (
                 <button
-                  className="btn-primary"
-                  disabled={!clientName.trim() || !clientPhone.trim() || !selDate || !selSlot || conflict || enviando}
-                  onClick={handleConfirmarAgendamentoCliente}
+                  key={d.key}
+                  className="chip"
+                  onClick={() => {
+                    setSelDate(d.key);
+                    setSelSlot(null);
+                  }}
                   style={{
-                    width: "100%",
-                    padding: 14,
-                    borderRadius: 12,
-                    fontWeight: 600,
-                    fontSize: 15,
+                    flex: "0 0 auto",
+                    minWidth: 52,
+                    padding: "8px 4px",
+                    borderRadius: 10,
+                    textAlign: "center",
+                    background: selDate === d.key ? C.aubergine : "rgba(255,255,255,.07)",
+                    color: selDate === d.key ? "#fff" : C.ink,
+                    border: `1px solid ${selDate === d.key ? C.aubergine : C.line}`,
                   }}
                 >
-                  {enviando ? "Confirmando..." : `Confirmar Agendamento (${brl(precoEfetivo(selService))})`}
+                  <div style={{ fontSize: 10, fontWeight: 500, opacity: 0.85 }}>{d.top}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{d.num}</div>
                 </button>
-              </>
+              ))}
+            </div>
+
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>
+              Escolha o horário de início{carrinho.length > 1 ? " (os demais serviços seguem em sequência)" : ""}:
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+              {SLOTS.map((t) => {
+                const passou = horarioJaPassou(t);
+                return (
+                  <button
+                    key={t}
+                    className="chip"
+                    disabled={passou}
+                    onClick={() => setSelSlot(t)}
+                    style={{
+                      padding: "10px 0",
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      background: selSlot === t ? C.aubergine : "rgba(255,255,255,.07)",
+                      color: selSlot === t ? "#fff" : C.ink,
+                      border: `1px solid ${selSlot === t ? C.aubergine : C.line}`,
+                      opacity: passou ? 0.35 : 1,
+                      textDecoration: passou ? "line-through" : "none",
+                    }}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+
+            {conflict && (
+              <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>
+                Horário indisponível para {primeiroItem?.profissional?.nome}. Por favor, selecione outro horário.
+              </p>
             )}
+            {bookingError && (
+              <p style={{ color: C.danger, fontSize: 12, margin: "0 0 12px" }}>{bookingError}</p>
+            )}
+
+            <button
+              className="btn-primary"
+              disabled={carrinho.length === 0 || !clientName.trim() || !clientPhone.trim() || !selDate || !selSlot || conflict || enviando}
+              onClick={handleConfirmarAgendamentoCliente}
+              style={{
+                width: "100%",
+                padding: 14,
+                borderRadius: 12,
+                fontWeight: 600,
+                fontSize: 15,
+              }}
+            >
+              {enviando ? "Confirmando..." : `Confirmar Agendamento (${brl(totalPreco)})`}
+            </button>
           </div>
         </div>
+      )}
 
       {confirmed && (
         <ConfirmModal
           data={confirmed}
           onClose={() => {
             setConfirmed(null);
-            setSelService(null);
             setSelDate(null);
             setSelSlot(null);
           }}
@@ -4954,15 +5142,26 @@ function ConfirmModal({ data, onClose }) {
         <h3 className="display" style={{ fontSize: 24, margin: "0 0 8px" }}>
           Agendado!
         </h3>
-        <p style={{ color: C.muted, fontSize: 14, margin: 0 }}>
-          Olá, <strong>{data.clientName}</strong>! Seu horário para{" "}
-          <strong>{data.service?.nome || data.service?.name}</strong> com{" "}
-          <strong>{data.proName}</strong> foi confirmado para{" "}
-          <strong>
-            {DATES.find((d) => d.key === data.date)?.display || data.date} às {data.slot}
-          </strong>
-          .
+        <p style={{ color: C.muted, fontSize: 14, margin: "0 0 14px" }}>
+          Olá, <strong>{data.clientName}</strong>! Confirmamos para{" "}
+          <strong>{DATES.find((d) => d.key === data.date)?.display || data.date}</strong>:
         </p>
+        <div style={{ display: "grid", gap: 6, textAlign: "left" }}>
+          {(data.itens || []).map((item, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex", justifyContent: "space-between", gap: 8,
+                background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "8px 12px", fontSize: 13,
+              }}
+            >
+              <span>
+                {item.servico.nome} · {item.profissional?.nome}
+              </span>
+              <strong>{item.horario}</strong>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -4996,6 +5195,21 @@ function ServicoCard({ servico, profissional, selected, onSelect }) {
       }}
     >
       <div style={{ display: "flex", gap: 14, alignItems: "center", minWidth: 0 }}>
+        <div
+          aria-hidden="true"
+          style={{
+            flex: "0 0 auto",
+            width: 20,
+            height: 20,
+            borderRadius: "50%",
+            display: "grid",
+            placeItems: "center",
+            border: `1.5px solid ${selected ? C.aubergine : C.line}`,
+            background: selected ? C.aubergine : "transparent",
+          }}
+        >
+          {selected && <Check size={13} color="#fff" />}
+        </div>
         <div
           style={{
             flex: "0 0 auto",
